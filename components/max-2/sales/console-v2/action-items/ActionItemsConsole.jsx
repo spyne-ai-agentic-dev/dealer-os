@@ -239,12 +239,17 @@ export function ActionItemsConsole() {
 
   return (
     <div className={spyneSalesLayout.pageStack}>
-      {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className={max2Classes.pageTitle}>Action items</h1>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+      {/* SLA banner — the hero answer: how many items are past SLA right now */}
+      <SlaHero metrics={metrics} />
+
+      {/* Tabs + toolbar */}
+      <SpyneLineTabStrip>
+        {[['unresolved', 'Unresolved', filteredPending.length], ['resolved', 'Resolved', resolved.length], ['incorrect', 'Incorrect', incorrect.length]].map(([id, label, n]) => (
+          <SpyneLineTab key={id} active={tab === id} onClick={() => { setTab(id); setResolvedDetailId(null) }}>
+            {label} <span className="rounded-full px-1.5 py-0.5 text-[10.5px] font-bold tabular-nums" style={tab === id ? { background: 'var(--spyne-primary-soft)', color: 'var(--spyne-primary)' } : { background: 'var(--spyne-page-bg)', color: 'var(--spyne-text-muted)' }}>{n}</span>
+          </SpyneLineTab>
+        ))}
+        <div className="ml-auto flex items-center gap-2 pb-2">
           <button onClick={() => setRulesOpen(true)} className="spyne-btn-ghost !h-9 !text-[12.5px]" title="Action-item rules & routing">
             <MaterialSymbol name="settings" size={16} /> Rules
           </button>
@@ -259,18 +264,6 @@ export function ActionItemsConsole() {
             ))}
           </div>
         </div>
-      </div>
-
-      {/* SLA banner — the hero answer: how many items are past SLA right now */}
-      <SlaHero metrics={metrics} />
-
-      {/* Tabs */}
-      <SpyneLineTabStrip>
-        {[['unresolved', 'Unresolved', filteredPending.length], ['resolved', 'Resolved', resolved.length], ['incorrect', 'Incorrect', incorrect.length]].map(([id, label, n]) => (
-          <SpyneLineTab key={id} active={tab === id} onClick={() => { setTab(id); setResolvedDetailId(null) }}>
-            {label} <span className="rounded-full px-1.5 py-0.5 text-[10.5px] font-bold tabular-nums" style={tab === id ? { background: 'var(--spyne-primary-soft)', color: 'var(--spyne-primary)' } : { background: 'var(--spyne-page-bg)', color: 'var(--spyne-text-muted)' }}>{n}</span>
-          </SpyneLineTab>
-        ))}
       </SpyneLineTabStrip>
 
       {tab === 'resolved' ? (

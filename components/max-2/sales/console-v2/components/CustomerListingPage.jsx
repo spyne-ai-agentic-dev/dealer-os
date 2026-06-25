@@ -504,53 +504,15 @@ export default function CustomerListingPage({ onViewProfile, department = 'sales
   return (
     <div className="relative min-w-0 spyne-animate-fade-in">
       <div className={spyneSalesLayout.pageStack}>
-        {/* Sticky page header — matches Sales Overview / Appointments */}
-        <div
-          className={cn(
-            'sticky z-[30] -mx-max2-page bg-spyne-page px-max2-page pt-4 pb-3',
-            'top-[6rem] lg:top-10',
-          )}
-        >
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h1 className={max2Classes.pageTitle}>
-                {isService ? SERVICE_CONSOLE_TAB_CONTENT.customers.pageTitle : 'Leads'}
-              </h1>
-              <p className={`${max2Classes.pageDescription} mt-0.5`}>
-                {roster.length} total ·{' '}
-                {view === 'swimlane'
-                  ? isService
-                    ? SERVICE_CONSOLE_TAB_CONTENT.customers.pageDescriptionPipeline
-                    : 'pipeline view'
-                  : isService
-                    ? SERVICE_CONSOLE_TAB_CONTENT.customers.pageDescriptionTable
-                    : 'sorted by most recent interaction'}
-              </p>
-            </div>
-            <SpyneSegmentedControl
-              aria-label={isService ? SERVICE_CONSOLE_TAB_CONTENT.customers.viewAriaLabel : 'Leads view'}
-              className="shrink-0"
-            >
-              <SpyneSegmentedButton active={view === 'swimlane'} onClick={() => setView('swimlane')}>
-                <MaterialSymbol name="view_column" size={14} aria-hidden />
-                Pipeline
-              </SpyneSegmentedButton>
-              <SpyneSegmentedButton active={view === 'table'} onClick={() => setView('table')}>
-                <MaterialSymbol name="view_list" size={14} aria-hidden />
-                Table
-              </SpyneSegmentedButton>
-            </SpyneSegmentedControl>
-          </div>
-        </div>
-
         <div className="min-w-0 space-y-6">
         {/* VINI decay-risk banner */}
         <ViniTabStrip
           insight={`${roster.length} ${isService ? 'guests' : 'leads'} in the pipeline. VINI ranks them by decay risk — re-engage the ones cooling fastest before they go cold, not after.`}
         />
 
-        {/* Search + filters */}
-        <div className="flex flex-wrap items-center gap-3">
+        {/* Search + filters + view switcher */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
           <div className="relative flex-shrink-0" style={{ width: 240 }}>
             <MaterialSymbol
               name="search"
@@ -581,6 +543,20 @@ export default function CustomerListingPage({ onViewProfile, department = 'sales
               </button>
             ))}
           </div>
+          </div>
+          <SpyneSegmentedControl
+            aria-label={isService ? SERVICE_CONSOLE_TAB_CONTENT.customers.viewAriaLabel : 'Leads view'}
+            className="shrink-0"
+          >
+            <SpyneSegmentedButton active={view === 'swimlane'} onClick={() => setView('swimlane')}>
+              <MaterialSymbol name="view_column" size={14} aria-hidden />
+              Pipeline
+            </SpyneSegmentedButton>
+            <SpyneSegmentedButton active={view === 'table'} onClick={() => setView('table')}>
+              <MaterialSymbol name="view_list" size={14} aria-hidden />
+              Table
+            </SpyneSegmentedButton>
+          </SpyneSegmentedControl>
         </div>
 
         {/* Swimlane view */}
