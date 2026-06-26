@@ -39,6 +39,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { href: "/max-2", label: "Home", icon: "home", exact: true },
+  { href: "/max-2/studio-os", label: "Studio OS", icon: "auto_awesome" },
   {
     href: "/max-2/studio",
     label: "Inventory",
@@ -70,6 +71,7 @@ export default function Max2Layout({ children }: { children: React.ReactNode }) 
     pathname.startsWith("/max-2/service") ||
     pathname.startsWith("/max-2/receptionist") ||
     pathname.startsWith("/max-2/studio")
+  const isStudioOs = pathname.startsWith("/max-2/studio-os")
   const [collapsed, setCollapsed] = React.useState(true)
   const [mobileOpen, setMobileOpen] = React.useState(false)
   const [hoveredParent, setHoveredParent] = React.useState<string | null>(null)
@@ -87,7 +89,9 @@ export default function Max2Layout({ children }: { children: React.ReactNode }) 
     return (
       <div className="flex flex-col gap-0">
         {navItems.map((item) => {
-          const isActive = item.exact ? pathname === item.href : pathname.startsWith(item.href)
+          const isActive = item.exact
+            ? pathname === item.href
+            : pathname === item.href || pathname.startsWith(`${item.href}/`)
           const hasChildren = item.children && item.children.length > 0
           const isExpanded = hasChildren && (hoveredParent === item.href || isActive)
 
@@ -199,8 +203,13 @@ export default function Max2Layout({ children }: { children: React.ReactNode }) 
             </div>
             <div
               className={cn(
-                /* Sales / Service: no horizontal padding here; tab strip is full width; page body pads inside experience */
-                isConsoleTabRoute ? "pb-max2-page pt-0" : max2Layout.pagePadding
+                /* Studio OS: edge-to-edge — the prototype fills the full content area itself */
+                isStudioOs
+                  ? "h-full"
+                  : /* Sales / Service: no horizontal padding here; tab strip is full width; page body pads inside experience */
+                    isConsoleTabRoute
+                    ? "pb-max2-page pt-0"
+                    : max2Layout.pagePadding
               )}
             >
               <HoldingCostRateProvider>{children}</HoldingCostRateProvider>
