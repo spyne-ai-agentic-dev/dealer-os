@@ -17,11 +17,12 @@ import {
   receptionistFollowUps,
   receptionistCalls,
   knowledgeSuggestions,
+  dataHealthIssues,
   type ReceptionistFollowUpItem,
 } from "./receptionist-data"
 import { ReceptionistAgentCard } from "./receptionist-agent-card"
 import { ReceptionistRoutingPanel } from "./receptionist-routing-panel"
-import { ReceptionistActionItems } from "./receptionist-action-items"
+import { ActionItemsConsole as ReceptionistActionItems } from "./action-items"
 import { ReceptionistCallsTable } from "./receptionist-calls-table"
 import { ReceptionistDataHealth } from "./receptionist-data-health"
 import { ReceptionistKnowledge } from "./receptionist-knowledge"
@@ -41,15 +42,14 @@ export function ConsoleV2ReceptionistExperience() {
     router.push(page === "overview" ? "/max-2/receptionist" : `/max-2/receptionist?tab=${page}`, { scroll: false })
   }
 
-  const openActionItems = receptionistFollowUps.filter((f) => f.status === "open").length
-  const knowledgeGaps   = knowledgeSuggestions.length
-  // Mirror data-health's local issue count (kept in that file). 2 today; swap with a shared source when wired.
-  const dataHealthIssues = 2
+  const openActionItems       = receptionistFollowUps.filter((f) => f.status === "open").length
+  const knowledgeGaps         = knowledgeSuggestions.length
+  const dataHealthIssueCount  = dataHealthIssues.length
 
   const badgeOverrides = {
-    "data-health":  dataHealthIssues > 0 ? dataHealthIssues : null,
-    "action-items": openActionItems    > 0 ? openActionItems    : null,
-    "knowledge":    knowledgeGaps      > 0 ? knowledgeGaps      : null,
+    "data-health":  dataHealthIssueCount > 0 ? dataHealthIssueCount : null,
+    "action-items": openActionItems      > 0 ? openActionItems      : null,
+    "knowledge":    knowledgeGaps        > 0 ? knowledgeGaps        : null,
   }
 
   return (
@@ -57,10 +57,10 @@ export function ConsoleV2ReceptionistExperience() {
       <SecondaryNav activePage={activePage} embedded onPageChange={handlePageChange} department="receptionist" badgeOverrides={badgeOverrides} />
       <main className="min-w-0 transition-all duration-200">
         <div className={max2Classes.moduleSecondaryNavPageBody}>
-          {activePage === "overview"       && <ReceptionistOverviewPage onNavigate={handlePageChange} dataHealthIssues={dataHealthIssues} />}
+          {activePage === "overview"       && <ReceptionistOverviewPage onNavigate={handlePageChange} dataHealthIssues={dataHealthIssueCount} />}
           {activePage === "data-health"    && <ReceptionistDataHealth />}
           {activePage === "calls"          && <ReceptionistCallsTable calls={receptionistCalls} />}
-          {activePage === "action-items"   && <ReceptionistActionItems items={receptionistFollowUps} />}
+          {activePage === "action-items"   && <ReceptionistActionItems />}
           {activePage === "knowledge"      && <ReceptionistKnowledge />}
         </div>
       </main>
@@ -356,15 +356,20 @@ function RecentCallsCard({ calls, total, onViewAll }: { calls: typeof receptioni
           const m = c.startedAt.match(/T(\d{2}):(\d{2})/)
           const time = m ? `${(+m[1] % 12) || 12}:${m[2]} ${(+m[1]) >= 12 ? "PM" : "AM"}` : ""
           return (
-            <div key={c.id} className="flex items-start gap-3 text-[13px]">
-              <span className="w-14 shrink-0 tabular-nums text-[11px] font-medium text-spyne-text-muted">{time}</span>
+            <button
+              key={c.id}
+              type="button"
+              onClick={onViewAll}
+              className="flex items-start gap-3 text-[13px] -mx-2 px-2 py-1.5 rounded-md hover:bg-spyne-surface-hover transition-colors text-left"
+            >
+              <span className="w-14 shrink-0 tabular-nums text-[11px] font-medium text-spyne-text-muted pt-0.5">{time}</span>
               <div className="min-w-0 flex-1">
                 <div className="font-semibold text-spyne-text-primary truncate">{c.customerName ?? c.callerPhone}</div>
                 <div className="text-[11px] text-spyne-text-muted line-clamp-1 mt-0.5">
                   {c.intentTitle} · {c.transferTarget === "—" ? "Answered directly" : `→ ${c.transferTarget}`}
                 </div>
               </div>
-            </div>
+            </button>
           )
         })}
       </div>

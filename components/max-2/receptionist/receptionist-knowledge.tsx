@@ -4,6 +4,7 @@ import { useState } from "react"
 import { MaterialSymbol } from "@/components/max-2/material-symbol"
 import { SpyneLineTab, SpyneLineTabBadge, SpyneLineTabStrip } from "@/components/max-2/spyne-line-tabs"
 import { SpyneRoiKpiMetricCell, SpyneRoiKpiStrip } from "@/components/max-2/spyne-roi-kpi-strip"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { max2Classes, spyneComponentClasses, spyneSalesLayout } from "@/lib/design-system/max-2"
 import { cn } from "@/lib/utils"
 import {
@@ -44,9 +45,11 @@ export function ReceptionistKnowledge() {
   const [faqs, setFaqs] = useState(seedFaqs)
   const [promotions, setPromotions] = useState(seedPromotions)
   const [bulletins, setBulletins] = useState(seedBulletins)
-  const [documents] = useState(seedDocuments)
+  const [documents, setDocuments] = useState(seedDocuments)
   const [suggestions, setSuggestions] = useState(knowledgeSuggestions)
   const [websiteSync, setWebsiteSync] = useState<WebsiteSyncConfig>(seedWebsiteSync)
+  const [toast, setToast] = useState<string | null>(null)
+  const flash = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2400) }
 
   // Page-level stats
   const totalSources = quickFacts.length + faqs.length + promotions.filter((p) => p.status === "active").length + documents.filter((d) => d.status === "ready").length
@@ -61,9 +64,6 @@ export function ReceptionistKnowledge() {
           <h1 className={max2Classes.pageTitle}>Knowledge</h1>
           <p className={max2Classes.pageDescription}>What Riley knows about your dealership. The agent draws from these sources before every answer — never fabricates.</p>
         </div>
-        <button type="button" className={cn(spyneComponentClasses.btnPrimaryMd, "flex items-center gap-1.5")}>
-          <MaterialSymbol name="add" size={16} /> Add knowledge
-        </button>
       </div>
 
       {/* KPI strip — knowledge health at a glance */}
@@ -102,10 +102,30 @@ export function ReceptionistKnowledge() {
       {tab === "facts"       && <QuickFactsSection facts={quickFacts} setFacts={setQuickFacts} />}
       {tab === "faq"         && <FaqSection faqs={faqs} setFaqs={setFaqs} />}
       {tab === "promotions"  && <PromotionsSection promotions={promotions} setPromotions={setPromotions} />}
-      {tab === "documents"   && <DocumentsSection documents={documents} />}
+      {tab === "documents"   && <DocumentsSection documents={documents} setDocuments={setDocuments} />}
       {tab === "website"     && <WebsiteSection config={websiteSync} setConfig={setWebsiteSync} />}
       {tab === "bulletin"    && <BulletinSection bulletins={bulletins} setBulletins={setBulletins} />}
-      {tab === "suggestions" && <SuggestionsSection suggestions={suggestions} setSuggestions={setSuggestions} />}
+      {tab === "suggestions" && (
+        <SuggestionsSection
+          suggestions={suggestions}
+          setSuggestions={setSuggestions}
+          onAddFact={(text) => setQuickFacts([
+            { id: `qf-${Date.now()}`, category: "policies", text, addedBy: "VINI suggestion", addedAt: "Just now", timesReferenced: 0 },
+            ...quickFacts,
+          ])}
+          onAddFaq={(question, answer) => setFaqs([
+            { id: `faq-${Date.now()}`, question, answer, category: "other", timesAnswered: 0, lastAnswered: "Just now" },
+            ...faqs,
+          ])}
+          onJumpTab={setTab}
+        />
+      )}
+
+      {toast && (
+        <div className="fixed left-1/2 bottom-6 z-[200] flex -translate-x-1/2 items-center gap-1.5 rounded-lg px-4 py-2.5 text-[12.5px] font-semibold text-white shadow-lg" style={{ background: "var(--spyne-text-primary)" }}>
+          <MaterialSymbol name="check_circle" size={14} /> {toast}
+        </div>
+      )}
     </div>
   )
 }
@@ -206,8 +226,15 @@ function QuickFactsSection({ facts, setFacts }: { facts: QuickFact[]; setFacts: 
 // ============= FAQ =============
 function FaqSection({ faqs, setFaqs }: { faqs: FAQItem[]; setFaqs: (f: FAQItem[]) => void }) {
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [dialogOpen, setDialogOpen] = useState(false)
   const toggle = (id: string) => setExpanded(expanded === id ? null : id)
   const remove = (id: string) => setFaqs(faqs.filter((f) => f.id !== id))
+  const handleAdd = (item: Omit<FAQItem, "id" | "timesAnswered" | "lastAnswered">) => {
+    setFaqs([
+      { id: `faq-${Date.now()}`, ...item, timesAnswered: 0, lastAnswered: "Just now" },
+      ...faqs,
+    ])
+  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -216,9 +243,10 @@ function FaqSection({ faqs, setFaqs }: { faqs: FAQItem[]; setFaqs: (f: FAQItem[]
         <div className="text-[13px] flex-1">
           <strong>Q&amp;A pairs Riley delivers verbatim.</strong> Use this when wording matters — legal disclaimers, exact warranty terms, branded responses.
         </div>
-        <button type="button" className={cn(spyneComponentClasses.btnPrimaryMd, "flex items-center gap-1")}>
+        <button type="button" onClick={() => setDialogOpen(true)} className={cn(spyneComponentClasses.btnPrimaryMd, "flex items-center gap-1")}>
           <MaterialSymbol name="add" size={14} /> Add FAQ
         </button>
+        <AddFaqDialog open={dialogOpen} onOpenChange={setDialogOpen} onSubmit={handleAdd} />
       </div>
 
       <div className="spyne-card overflow-hidden">
@@ -267,7 +295,14 @@ function PromotionsSection({ promotions, setPromotions }: { promotions: Promotio
     expired: promotions.filter((p) => p.status === "expired").length,
   }
 
+  const [dialogOpen, setDialogOpen] = useState(false)
   const archive = (id: string) => setPromotions(promotions.map((p) => p.id === id ? { ...p, status: "expired" as PromotionStatus } : p))
+  const handleAdd = (item: Omit<Promotion, "id" | "timesReferenced">) => {
+    setPromotions([
+      { id: `promo-${Date.now()}`, ...item, timesReferenced: 0 } as Promotion,
+      ...promotions,
+    ])
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -276,9 +311,10 @@ function PromotionsSection({ promotions, setPromotions }: { promotions: Promotio
         <div className="text-[13px] flex-1">
           <strong>Time-bound campaigns Riley mentions to relevant callers.</strong> Auto-expire on end date.
         </div>
-        <button type="button" className={cn(spyneComponentClasses.btnPrimaryMd, "flex items-center gap-1")}>
+        <button type="button" onClick={() => setDialogOpen(true)} className={cn(spyneComponentClasses.btnPrimaryMd, "flex items-center gap-1")}>
           <MaterialSymbol name="add" size={14} /> New promotion
         </button>
+        <AddPromotionDialog open={dialogOpen} onOpenChange={setDialogOpen} onSubmit={handleAdd} />
       </div>
 
       <div className="flex gap-2">
@@ -314,7 +350,14 @@ function PromotionsSection({ promotions, setPromotions }: { promotions: Promotio
 }
 
 // ============= DOCUMENTS =============
-function DocumentsSection({ documents }: { documents: KnowledgeDocument[] }) {
+function DocumentsSection({ documents, setDocuments }: { documents: KnowledgeDocument[]; setDocuments: (d: KnowledgeDocument[]) => void }) {
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const handleAdd = (item: { filename: string; fileType: KnowledgeDocument["fileType"]; sizeKb: number }) => {
+    setDocuments([
+      { id: `doc-${Date.now()}`, ...item, uploadedBy: "You", uploadedAt: "Just now", status: "processing", chunkCount: 0 } as KnowledgeDocument,
+      ...documents,
+    ])
+  }
   return (
     <div className="flex flex-col gap-4">
       <div className="spyne-card p-4 flex items-center gap-3">
@@ -322,9 +365,10 @@ function DocumentsSection({ documents }: { documents: KnowledgeDocument[] }) {
         <div className="text-[13px] flex-1">
           <strong>Upload PDFs / Word docs to enrich Riley's knowledge.</strong> Parsed into searchable chunks. Riley cites the source.
         </div>
-        <button type="button" className={cn(spyneComponentClasses.btnPrimaryMd, "flex items-center gap-1")}>
+        <button type="button" onClick={() => setDialogOpen(true)} className={cn(spyneComponentClasses.btnPrimaryMd, "flex items-center gap-1")}>
           <MaterialSymbol name="upload" size={14} /> Upload document
         </button>
+        <UploadDocumentDialog open={dialogOpen} onOpenChange={setDialogOpen} onSubmit={handleAdd} />
       </div>
 
       <div className="spyne-card overflow-hidden">
@@ -628,15 +672,30 @@ function WebsiteSection({ config, setConfig }: { config: WebsiteSyncConfig; setC
 
 
 // ============= BULLETIN =============
+const EXPIRY_OPTIONS = [
+  { value: "24h",   label: "Auto-expire · 24 hours" },
+  { value: "7d",    label: "Auto-expire · 7 days" },
+  { value: "30d",   label: "Auto-expire · 30 days" },
+  { value: "manual", label: "Until manually removed" },
+] as const
+type ExpiryKey = typeof EXPIRY_OPTIONS[number]["value"]
+
 function BulletinSection({ bulletins, setBulletins }: { bulletins: BulletinItem[]; setBulletins: (b: BulletinItem[]) => void }) {
   const [draft, setDraft] = useState("")
+  const [expiry, setExpiry] = useState<ExpiryKey>("7d")
+  const expiryLabel = (k: ExpiryKey) => {
+    const opt = EXPIRY_OPTIONS.find((o) => o.value === k)
+    if (!opt) return "Auto · 7 days"
+    return opt.value === "manual" ? "Manually removed" : opt.label.replace("Auto-expire · ", "Auto · ")
+  }
   const post = () => {
     if (!draft.trim()) return
     setBulletins([
-      { id: `b-${Date.now()}`, message: draft.trim(), expiresAt: "Auto · 7 days", postedBy: "You", postedAt: "Just now", active: true },
+      { id: `b-${Date.now()}`, message: draft.trim(), expiresAt: expiryLabel(expiry), postedBy: "You", postedAt: "Just now", active: true },
       ...bulletins,
     ])
     setDraft("")
+    setExpiry("7d")
   }
   const dismiss = (id: string) => setBulletins(bulletins.map((b) => b.id === id ? { ...b, active: false } : b))
   const remove = (id: string) => setBulletins(bulletins.filter((b) => b.id !== id))
@@ -659,11 +718,15 @@ function BulletinSection({ bulletins, setBulletins }: { bulletins: BulletinItem[
             placeholder="e.g. Closing at 4pm today for staff training..."
             className="flex-1 rounded-lg border border-spyne-border bg-spyne-surface px-3 py-2 text-[13px] focus:border-spyne-brand focus:outline-none"
           />
-          <select className="rounded-lg border border-spyne-border bg-spyne-surface px-3 py-2 text-[13px] focus:border-spyne-brand focus:outline-none">
-            <option>Auto-expire · 24 hours</option>
-            <option>Auto-expire · 7 days</option>
-            <option>Auto-expire · 30 days</option>
-            <option>Until manually removed</option>
+          <select
+            value={expiry}
+            onChange={(e) => setExpiry(e.target.value as ExpiryKey)}
+            className="rounded-lg border border-spyne-border bg-spyne-surface px-3 py-2 text-[13px] focus:border-spyne-brand focus:outline-none"
+            aria-label="Expiry"
+          >
+            {EXPIRY_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
           </select>
           <button type="button" onClick={post} className={cn(spyneComponentClasses.btnPrimaryMd, "flex items-center gap-1")}>
             <MaterialSymbol name="send" size={14} /> Post
@@ -702,8 +765,43 @@ function BulletinSection({ bulletins, setBulletins }: { bulletins: BulletinItem[
 }
 
 // ============= SUGGESTIONS =============
-function SuggestionsSection({ suggestions, setSuggestions }: { suggestions: KnowledgeSuggestion[]; setSuggestions: (s: KnowledgeSuggestion[]) => void }) {
+function SuggestionsSection({
+  suggestions,
+  setSuggestions,
+  onAddFact,
+  onAddFaq,
+  onJumpTab,
+}: {
+  suggestions: KnowledgeSuggestion[]
+  setSuggestions: (s: KnowledgeSuggestion[]) => void
+  onAddFact: (text: string) => void
+  onAddFaq: (question: string, answer: string) => void
+  onJumpTab: (t: Tab) => void
+}) {
   const dismiss = (id: string) => setSuggestions(suggestions.filter((s) => s.id !== id))
+  const [toast, setToast] = useState<string | null>(null)
+  const flash = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2400) }
+
+  const addToKnowledge = (s: KnowledgeSuggestion) => {
+    if (s.type === "unanswered_question") {
+      // Strip "Callers asking: '...'" wrapper if present
+      const q = s.text.replace(/^Callers asking:\s*['"]?/, "").replace(/['"]?\s*$/, "")
+      onAddFaq(q, s.suggestedAnswer ?? "")
+      setSuggestions(suggestions.filter((x) => x.id !== s.id))
+      flash("Added to FAQ — review in the FAQ tab")
+      setTimeout(() => onJumpTab("faq"), 600)
+    } else if (s.type === "missing_fact") {
+      onAddFact(s.suggestedAnswer ?? s.text)
+      setSuggestions(suggestions.filter((x) => x.id !== s.id))
+      flash("Added to Quick Facts")
+      setTimeout(() => onJumpTab("facts"), 600)
+    } else {
+      // outdated_fact — needs manual review in the relevant section
+      setSuggestions(suggestions.filter((x) => x.id !== s.id))
+      flash("Marked for review · open Promotions to archive")
+      setTimeout(() => onJumpTab("promotions"), 600)
+    }
+  }
 
   const typeMeta = {
     unanswered_question: { label: "Unanswered question", icon: "help",     tone: "warning" as const },
@@ -757,8 +855,9 @@ function SuggestionsSection({ suggestions, setSuggestions }: { suggestions: Know
                   </div>
                 )}
                 <div className="flex gap-2 mt-3">
-                  <button type="button" className={cn(spyneComponentClasses.btnPrimaryMd, "flex items-center gap-1")}>
-                    <MaterialSymbol name="add" size={14} /> Add to knowledge
+                  <button type="button" onClick={() => addToKnowledge(s)} className={cn(spyneComponentClasses.btnPrimaryMd, "flex items-center gap-1")}>
+                    <MaterialSymbol name="add" size={14} />
+                    {s.type === "unanswered_question" ? "Add as FAQ" : s.type === "missing_fact" ? "Add as Quick Fact" : "Review now"}
                   </button>
                   <button type="button" onClick={() => dismiss(s.id)} className={spyneComponentClasses.btnSecondaryMd}>Dismiss</button>
                 </div>
@@ -767,6 +866,12 @@ function SuggestionsSection({ suggestions, setSuggestions }: { suggestions: Know
           </div>
         )
       })}
+
+      {toast && (
+        <div className="fixed left-1/2 bottom-6 z-[200] flex -translate-x-1/2 items-center gap-1.5 rounded-lg px-4 py-2.5 text-[12.5px] font-semibold text-white shadow-lg" style={{ background: "var(--spyne-text-primary)" }}>
+          <MaterialSymbol name="check_circle" size={14} /> {toast}
+        </div>
+      )}
     </div>
   )
 }
@@ -812,4 +917,194 @@ function Pill({ tone, children }: { tone: "success" | "warning" | "brand" | "err
     tone === "info"    ? "bg-spyne-info-subtle text-spyne-info" :
                          "bg-spyne-border text-spyne-text-muted"
   return <span className={cn("inline-block rounded-md px-2 py-0.5 text-[11px] font-semibold", cls)}>{children}</span>
+}
+
+// ============= DIALOGS =============
+// Reusable input + textarea + select primitives to keep dialog markup focused.
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return <label className="block text-[11px] font-bold uppercase tracking-[0.04em] text-spyne-text-muted mb-1">{children}</label>
+}
+const fieldInputCls = "w-full rounded-lg border border-spyne-border bg-spyne-surface px-3 py-2 text-[13px] focus:border-spyne-brand focus:outline-none"
+
+function AddFaqDialog({ open, onOpenChange, onSubmit }: {
+  open: boolean
+  onOpenChange: (o: boolean) => void
+  onSubmit: (item: Omit<FAQItem, "id" | "timesAnswered" | "lastAnswered">) => void
+}) {
+  const [question, setQuestion] = useState("")
+  const [answer, setAnswer] = useState("")
+  const [category, setCategory] = useState<FAQItem["category"]>("services")
+  const valid = question.trim().length > 0 && answer.trim().length > 0
+  const reset = () => { setQuestion(""); setAnswer(""); setCategory("services") }
+  const handleSubmit = () => {
+    if (!valid) return
+    onSubmit({ question: question.trim(), answer: answer.trim(), category })
+    reset()
+    onOpenChange(false)
+  }
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o) }}>
+      <DialogContent className="sm:max-w-[520px]">
+        <DialogHeader>
+          <DialogTitle>Add FAQ</DialogTitle>
+          <DialogDescription>Riley delivers FAQ answers verbatim. Keep them short and conversational.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div>
+            <FieldLabel>Question</FieldLabel>
+            <input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="What's your Wi-Fi password?" className={fieldInputCls} autoFocus />
+          </div>
+          <div>
+            <FieldLabel>Answer</FieldLabel>
+            <textarea value={answer} onChange={(e) => setAnswer(e.target.value)} rows={3} placeholder="Free Wi-Fi — network 'SpyneGuest', no password." className={fieldInputCls} />
+          </div>
+          <div>
+            <FieldLabel>Category</FieldLabel>
+            <select value={category} onChange={(e) => setCategory(e.target.value as FAQItem["category"])} className={fieldInputCls}>
+              <option value="services">Services</option>
+              <option value="amenities">Amenities</option>
+              <option value="policies">Policies</option>
+              <option value="directions">Directions</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+        </div>
+        <DialogFooter>
+          <button type="button" onClick={() => onOpenChange(false)} className={spyneComponentClasses.btnSecondaryMd}>Cancel</button>
+          <button type="button" disabled={!valid} onClick={handleSubmit} className={cn(spyneComponentClasses.btnPrimaryMd, !valid && "opacity-50 cursor-not-allowed")}>Add FAQ</button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function AddPromotionDialog({ open, onOpenChange, onSubmit }: {
+  open: boolean
+  onOpenChange: (o: boolean) => void
+  onSubmit: (item: Omit<Promotion, "id" | "timesReferenced">) => void
+}) {
+  const [title, setTitle] = useState("")
+  const [description, setDescription] = useState("")
+  const [department, setDepartment] = useState<Promotion["department"]>("service")
+  const [startDate, setStartDate] = useState("")
+  const [endDate, setEndDate] = useState("")
+  const [status, setStatus] = useState<Promotion["status"]>("active")
+  const valid = title.trim().length > 0 && description.trim().length > 0 && startDate && endDate
+  const reset = () => { setTitle(""); setDescription(""); setDepartment("service"); setStartDate(""); setEndDate(""); setStatus("active") }
+  const handleSubmit = () => {
+    if (!valid) return
+    onSubmit({ title: title.trim(), description: description.trim(), department, startDate, endDate, status })
+    reset()
+    onOpenChange(false)
+  }
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o) }}>
+      <DialogContent className="sm:max-w-[560px]">
+        <DialogHeader>
+          <DialogTitle>New promotion</DialogTitle>
+          <DialogDescription>Riley mentions active promotions to relevant callers. Auto-expires on end date.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div>
+            <FieldLabel>Title</FieldLabel>
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Memorial Day service special" className={fieldInputCls} autoFocus />
+          </div>
+          <div>
+            <FieldLabel>Description</FieldLabel>
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} placeholder="$30 off oil change + tire rotation through end of month." className={fieldInputCls} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <FieldLabel>Department</FieldLabel>
+              <select value={department} onChange={(e) => setDepartment(e.target.value as Promotion["department"])} className={fieldInputCls}>
+                <option value="sales">Sales</option>
+                <option value="service">Service</option>
+                <option value="parts">Parts</option>
+                <option value="finance">Finance</option>
+              </select>
+            </div>
+            <div>
+              <FieldLabel>Status</FieldLabel>
+              <select value={status} onChange={(e) => setStatus(e.target.value as Promotion["status"])} className={fieldInputCls}>
+                <option value="active">Active</option>
+                <option value="scheduled">Scheduled</option>
+                <option value="expired">Expired</option>
+              </select>
+            </div>
+            <div>
+              <FieldLabel>Start date</FieldLabel>
+              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={fieldInputCls} />
+            </div>
+            <div>
+              <FieldLabel>End date</FieldLabel>
+              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className={fieldInputCls} />
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <button type="button" onClick={() => onOpenChange(false)} className={spyneComponentClasses.btnSecondaryMd}>Cancel</button>
+          <button type="button" disabled={!valid} onClick={handleSubmit} className={cn(spyneComponentClasses.btnPrimaryMd, !valid && "opacity-50 cursor-not-allowed")}>Add promotion</button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function UploadDocumentDialog({ open, onOpenChange, onSubmit }: {
+  open: boolean
+  onOpenChange: (o: boolean) => void
+  onSubmit: (item: { filename: string; fileType: KnowledgeDocument["fileType"]; sizeKb: number }) => void
+}) {
+  const [filename, setFilename] = useState("")
+  const [fileType, setFileType] = useState<KnowledgeDocument["fileType"]>("pdf")
+  const [sizeKb, setSizeKb] = useState("")
+  const valid = filename.trim().length > 0
+  const reset = () => { setFilename(""); setFileType("pdf"); setSizeKb("") }
+  const handleSubmit = () => {
+    if (!valid) return
+    onSubmit({ filename: filename.trim(), fileType, sizeKb: Number(sizeKb) || 0 })
+    reset()
+    onOpenChange(false)
+  }
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o) }}>
+      <DialogContent className="sm:max-w-[480px]">
+        <DialogHeader>
+          <DialogTitle>Upload document</DialogTitle>
+          <DialogDescription>PDFs and Word docs get parsed into searchable chunks. Riley cites the source on every answer.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="flex items-center justify-center rounded-lg border-2 border-dashed border-spyne-border py-8 bg-spyne-surface-hover">
+            <div className="text-center">
+              <MaterialSymbol name="upload_file" size={28} className="text-spyne-text-muted mb-1" />
+              <div className="text-[12px] text-spyne-text-muted">File picker · drag &amp; drop</div>
+              <div className="text-[10px] text-spyne-text-subtle mt-1">PDF, DOCX, TXT · up to 25 MB</div>
+            </div>
+          </div>
+          <div>
+            <FieldLabel>Filename</FieldLabel>
+            <input value={filename} onChange={(e) => setFilename(e.target.value)} placeholder="Service warranty terms 2026.pdf" className={fieldInputCls} autoFocus />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <FieldLabel>File type</FieldLabel>
+              <select value={fileType} onChange={(e) => setFileType(e.target.value as KnowledgeDocument["fileType"])} className={fieldInputCls}>
+                <option value="pdf">PDF</option>
+                <option value="docx">DOCX</option>
+                <option value="txt">TXT</option>
+              </select>
+            </div>
+            <div>
+              <FieldLabel>Size (KB) <span className="text-spyne-text-subtle font-normal">— optional</span></FieldLabel>
+              <input type="number" value={sizeKb} onChange={(e) => setSizeKb(e.target.value)} placeholder="240" className={fieldInputCls} />
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <button type="button" onClick={() => onOpenChange(false)} className={spyneComponentClasses.btnSecondaryMd}>Cancel</button>
+          <button type="button" disabled={!valid} onClick={handleSubmit} className={cn(spyneComponentClasses.btnPrimaryMd, !valid && "opacity-50 cursor-not-allowed")}>Upload</button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
 }

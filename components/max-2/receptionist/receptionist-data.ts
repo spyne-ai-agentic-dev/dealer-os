@@ -106,35 +106,86 @@ export type ReceptionistFollowUpType =
   | "manager_escalation"
   | "config_gap"
 
+export type ReceptionistResolutionType =
+  | "callback_made" | "appointment_booked" | "info_provided" | "customer_unreachable" | "not_actionable" | "other"
+
+export type ReceptionistIncorrectReason =
+  | "wrong_intent" | "not_a_task" | "duplicate" | "spam_call" | "other"
+
 export interface ReceptionistFollowUpItem {
   id: string
   task: string
+  sourceMessage?: string   // what the caller actually said (1-line)
   callerName?: string
   callerPhone: string
   dueDate: string
+  createdAt: string        // ISO — used for period filtering
+  completedAt?: string     // ISO — set when marked done; used for "Done today" filter
   type: ReceptionistFollowUpType
   sourceIntent: string
   priority: "Urgent" | "High" | "Normal"
   status: "open" | "completed" | "dismissed"
-  assignedTo?: string
+  assignedTo?: string      // user id from RECEPTIONIST_USERS
+  outcome?: string         // last logged resolution outcome (typed label)
+  resolutionType?: ReceptionistResolutionType
+  resolutionNote?: string
+  incorrectReason?: ReceptionistIncorrectReason
 }
 
+// User dropdown for assignment in Action Items
+export const RECEPTIONIST_USERS: Record<string, { name: string; initials: string }> = {
+  "u-sam":   { name: "Sam Patel",    initials: "SP" },
+  "u-dawn":  { name: "Dawn Reyes",   initials: "DR" },
+  "u-marcus":{ name: "Marcus Lee",   initials: "ML" },
+  "u-priya": { name: "Priya Singh",  initials: "PS" },
+  "u-brian": { name: "Brian Cole",   initials: "BC" },
+  "u-elena": { name: "Elena Cruz",   initials: "EC" },
+  "u-admin": { name: "Spyne Admin",  initials: "SA" },
+}
+
+export const RECEPTIONIST_CURRENT_USER_ID = "u-priya"
+
+// Resolution types in display order — used by the Resolve picker + Resolved tab badge
+export const RECEPTIONIST_RESOLUTION_TYPES: { value: ReceptionistResolutionType; label: string; glyph: string }[] = [
+  { value: "callback_made",        label: "Callback made",         glyph: "phone_callback" },
+  { value: "appointment_booked",   label: "Appointment booked",    glyph: "event_available" },
+  { value: "info_provided",        label: "Info provided",         glyph: "info" },
+  { value: "customer_unreachable", label: "Customer unreachable",  glyph: "phone_missed" },
+  { value: "not_actionable",       label: "Not actionable",        glyph: "block" },
+  { value: "other",                label: "Other",                 glyph: "more_horiz" },
+]
+
+export const RECEPTIONIST_INCORRECT_REASONS: { value: ReceptionistIncorrectReason; label: string }[] = [
+  { value: "wrong_intent",  label: "Wrong intent" },
+  { value: "not_a_task",    label: "Not a task" },
+  { value: "duplicate",     label: "Duplicate" },
+  { value: "spam_call",     label: "Spam / robocall" },
+  { value: "other",         label: "Other" },
+]
+
 export const receptionistFollowUps: ReceptionistFollowUpItem[] = [
-  { id: "ai-001", task: "After-hours msg — caller wants brake service quote",      callerPhone: "+11321323333",   dueDate: "Today",     type: "after_hours_message", sourceIntent: "service_inquiry", priority: "Normal", status: "open", assignedTo: "Service Team" },
-  { id: "ai-002", task: "Failed transfer to Sam — caller agreed to callback Tue 10am", callerPhone: "+13534545555", dueDate: "Tomorrow", type: "failed_transfer",     sourceIntent: "staff_request",   priority: "Normal", status: "open", assignedTo: "Sam Patel" },
-  { id: "ai-003", task: "Config gap — Parts ext. 204 unreachable on 5 attempts",   callerPhone: "—",              dueDate: "Today",     type: "config_gap",          sourceIntent: "—",                priority: "High",   status: "open", assignedTo: "Admin" },
-  { id: "ai-004", task: "Manager escalation — Katie Brown complaint",              callerName: "Katie Brown", callerPhone: "+18774102019", dueDate: "Today",  type: "manager_escalation",  sourceIntent: "complaint_or_escalation", priority: "Urgent", status: "open", assignedTo: "Dawn Reyes" },
-  { id: "ai-005", task: "Callback scheduled Tue 10am — F-150 sales",               callerName: "Hamilton",    callerPhone: "+12542123960", dueDate: "Tomorrow", type: "callback_scheduled",  sourceIntent: "sales_inquiry",   priority: "Normal", status: "open", assignedTo: "Sales Team" },
-  { id: "ai-006", task: "Voicemail — F-150 question, no name given",               callerPhone: "+19875550102",   dueDate: "Today",     type: "voicemail",           sourceIntent: "sales_inquiry",   priority: "Normal", status: "open", assignedTo: "Sales Team" },
+  { id: "ai-001", task: "Call back for brake service quote",                              sourceMessage: "Hi, I know you're closed but I need brake service ASAP — please call me back tomorrow morning.",                                callerPhone: "+11321323333",                                  dueDate: "Today",     createdAt: "2026-06-25T08:12:00Z", type: "after_hours_message", sourceIntent: "service_inquiry",         priority: "Normal", status: "open", assignedTo: "u-sam" },
+  { id: "ai-002", task: "Callback Tue 10am — failed transfer to Sam",                     sourceMessage: "Can you have Sam call me back? I'd like Tuesday morning around 10.",                                                          callerPhone: "+13534545555",                                  dueDate: "Tomorrow", createdAt: "2026-06-24T14:30:00Z", type: "failed_transfer",     sourceIntent: "staff_request",           priority: "Normal", status: "open", assignedTo: "u-sam" },
+  { id: "ai-003", task: "Parts ext. 204 unreachable on 5 attempts — admin action",        sourceMessage: undefined,                                                                                                                       callerPhone: "—",                                             dueDate: "Today",     createdAt: "2026-06-22T11:00:00Z", type: "config_gap",          sourceIntent: "—",                       priority: "High",   status: "open", assignedTo: "u-admin" },
+  { id: "ai-004", task: "Manager escalation — Katie Brown complaint",                     sourceMessage: "I'm extremely frustrated — I want to speak with a manager. This is the third time I'm calling.",                            callerName: "Katie Brown", callerPhone: "+18774102019",       dueDate: "Today",     createdAt: "2026-06-25T11:55:00Z", type: "manager_escalation",  sourceIntent: "complaint_or_escalation", priority: "Urgent", status: "open", assignedTo: "u-dawn" },
+  { id: "ai-005", task: "Callback Tue 10am — F-150 lease inquiry",                        sourceMessage: "I saw an F-150 on your website — can someone call me back Tuesday morning to discuss lease options?",                       callerName: "Hamilton",    callerPhone: "+12542123960",       dueDate: "Tomorrow", createdAt: "2026-06-24T15:45:00Z", type: "callback_scheduled",  sourceIntent: "sales_inquiry",           priority: "Normal", status: "open", assignedTo: "u-elena" },
+  { id: "ai-006", task: "Voicemail — F-150 question, no name given",                      sourceMessage: "Hi, calling about a 2024 F-150 you have on the lot. Please call back.",                                                     callerPhone: "+19875550102",                                  dueDate: "Today",     createdAt: "2026-06-25T07:30:00Z", type: "voicemail",           sourceIntent: "sales_inquiry",           priority: "Normal", status: "open", assignedTo: "u-elena" },
+  // A couple of already-completed items so the Resolved tab isn't empty
+  { id: "ai-100", task: "Callback for trade-in eval — Marcus follow-up",                  sourceMessage: "Need a trade-in valuation on my 2020 Tesla Model 3 — call me back this afternoon.",                                          callerName: "Marcus Lee Jr.", callerPhone: "+14157205520",   dueDate: "Done",      createdAt: "2026-06-24T09:45:00Z", completedAt: "2026-06-25T15:30:00Z", type: "callback_scheduled", sourceIntent: "finance_inquiry",     priority: "Normal", status: "completed", assignedTo: "u-marcus", resolutionType: "callback_made",      resolutionNote: "Called back, offered $24,800. Customer considering." },
+  { id: "ai-101", task: "Voicemail — recall question on Bronco",                          sourceMessage: "Need to know if my Bronco is part of the airbag recall — please call me back.",                                              callerName: "Sofia Mendes",   callerPhone: "+17134802204",   dueDate: "Done",      createdAt: "2026-06-23T18:22:00Z", completedAt: "2026-06-25T10:00:00Z", type: "voicemail",          sourceIntent: "service_inquiry",     priority: "High",   status: "completed", assignedTo: "u-priya",  resolutionType: "appointment_booked", resolutionNote: "VIN verified — booked Thu 11am for recall 23S38." },
 ]
 
 // ============= CALLS =============
+export type CallSentiment = "happy" | "neutral" | "upset"
+export type CallLeadStatus = "appointment_booked" | "hot_lead" | "existing_customer" | "info_only" | "no_action"
+
 export interface ReceptionistCallRow {
   id: string
   customerName?: string
   callerPhone: string
   startedAt: string
   durationSec: number
+  speedToAnswerSec: number          // how fast Riley picked up — typically 1-2s
   intent: string
   intentTitle: string
   outcome: string
@@ -142,18 +193,137 @@ export interface ReceptionistCallRow {
   transferStatus: "connected" | "voicemail" | "message_taken" | "info_provided" | "abandoned"
   agent: string
   isReturningCaller: boolean
+  sentiment: CallSentiment
+  leadStatus: CallLeadStatus
+  tags: string[]                    // e.g. ["F-150", "Recall", "Hot lead"]
+  vehicleContext?: string           // e.g. "2023 F-150 · RO 8842"
+  summary: string                   // 1-line AI summary inline on the row
+  aiScore: number                   // 0–10 conversation-quality score (one decimal)
+  queryResolved: "resolved" | "not_resolved" | "abandoned"
 }
 
 export const receptionistCalls: ReceptionistCallRow[] = [
-  { id: "CALL-001", customerName: "Piyush Gambhir", callerPhone: "+15204025088",    startedAt: "2026-06-15T17:33:00Z", durationSec: 102, intent: "service_inquiry",         intentTitle: "Oil change inquiry",            outcome: "routed_to_ai_agent", transferTarget: "Eric (Service Inbound AI)", transferStatus: "connected",     agent: "Riley", isReturningCaller: true  },
-  { id: "CALL-002",                                  callerPhone: "+12162022537",    startedAt: "2026-06-15T16:12:00Z", durationSec: 58,  intent: "general_info",            intentTitle: "Asked for address & hours",     outcome: "answered_directly",   transferTarget: "—",                         transferStatus: "info_provided", agent: "Riley", isReturningCaller: false },
-  { id: "CALL-003", customerName: "Hamilton",         callerPhone: "+12542123960",   startedAt: "2026-06-15T15:45:00Z", durationSec: 134, intent: "sales_inquiry",           intentTitle: "F-150 availability",            outcome: "routed_to_ai_agent", transferTarget: "Emily (Sales Inbound AI)",  transferStatus: "connected",     agent: "Riley", isReturningCaller: true  },
-  { id: "CALL-004",                                  callerPhone: "+13534545555",    startedAt: "2026-06-15T14:30:00Z", durationSec: 72,  intent: "staff_request",           intentTitle: "Asked for Sam in Service",      outcome: "routed_to_staff",    transferTarget: "Sam Patel (Ext. 215)",      transferStatus: "voicemail",     agent: "Riley", isReturningCaller: false },
-  { id: "CALL-005",                                  callerPhone: "+11321323333",    startedAt: "2026-06-14T21:18:00Z", durationSec: 63,  intent: "after_hours_message",     intentTitle: "Brake service — after hours",   outcome: "message_taken",       transferTarget: "Service mailbox",           transferStatus: "message_taken", agent: "Riley", isReturningCaller: false },
-  { id: "CALL-006", customerName: "Vanshika Rao",    callerPhone: "+19108222231",   startedAt: "2026-06-14T18:45:00Z", durationSec: 47,  intent: "parts_inquiry",           intentTitle: "Brake pads availability",       outcome: "routed_to_dept",     transferTarget: "Parts (Ext. 204)",          transferStatus: "connected",     agent: "Riley", isReturningCaller: false },
-  { id: "CALL-007", customerName: "Katie Brown",     callerPhone: "+18774102019",   startedAt: "2026-06-14T11:55:00Z", durationSec: 96,  intent: "complaint_or_escalation", intentTitle: "Complaint — wanted manager",     outcome: "routed_to_staff",    transferTarget: "Dawn Reyes (Sales Mgr)",    transferStatus: "connected",     agent: "Riley", isReturningCaller: true  },
-  { id: "CALL-008",                                  callerPhone: "+12342344444",    startedAt: "2026-06-14T10:12:00Z", durationSec: 32,  intent: "abandoned",               intentTitle: "Hung up before intent",          outcome: "abandoned",           transferTarget: "—",                         transferStatus: "abandoned",     agent: "Riley", isReturningCaller: false },
+  { id: "CALL-001", customerName: "Piyush Gambhir",   callerPhone: "+15204025088", startedAt: "2026-06-25T17:33:00Z", durationSec: 102, speedToAnswerSec: 1, intent: "service_inquiry",         intentTitle: "Oil change inquiry",                 outcome: "routed_to_ai_agent", transferTarget: "Eric (Service Inbound AI)",  transferStatus: "connected",     agent: "Riley", isReturningCaller: true,  sentiment: "happy",   leadStatus: "appointment_booked", tags: ["Service", "Oil change", "Same-day"],     vehicleContext: "2022 F-150 · RO 8842",                summary: "Asked for next available oil-change slot. Riley booked Thu 9 AM with Service.", aiScore: 9.4, queryResolved: "resolved" },
+  { id: "CALL-002",                                    callerPhone: "+12162022537", startedAt: "2026-06-25T16:12:00Z", durationSec: 58,  speedToAnswerSec: 1, intent: "general_info",            intentTitle: "Asked for address & hours",          outcome: "answered_directly",   transferTarget: "—",                          transferStatus: "info_provided", agent: "Riley", isReturningCaller: false, sentiment: "neutral", leadStatus: "info_only",          tags: ["Hours"],                                 summary: "Caller asked weekend hours; Riley answered from knowledge base.", aiScore: 8.8, queryResolved: "resolved" },
+  { id: "CALL-003", customerName: "Hamilton",          callerPhone: "+12542123960", startedAt: "2026-06-25T15:45:00Z", durationSec: 134, speedToAnswerSec: 2, intent: "sales_inquiry",           intentTitle: "F-150 availability",                 outcome: "routed_to_ai_agent", transferTarget: "Emily (Sales Inbound AI)",   transferStatus: "connected",     agent: "Riley", isReturningCaller: true,  sentiment: "happy",   leadStatus: "hot_lead",           tags: ["Sales", "F-150", "Hot lead"],            vehicleContext: "Existing owner: 2018 F-150",          summary: "Asked about XLT F-150 stock; Riley routed to Emily who confirmed 2 in stock.", aiScore: 9.2, queryResolved: "resolved" },
+  { id: "CALL-004",                                    callerPhone: "+13534545555", startedAt: "2026-06-25T14:30:00Z", durationSec: 72,  speedToAnswerSec: 1, intent: "staff_request",           intentTitle: "Asked for Sam in Service",           outcome: "routed_to_staff",    transferTarget: "Sam Patel (Ext. 215)",       transferStatus: "voicemail",     agent: "Riley", isReturningCaller: false, sentiment: "neutral", leadStatus: "no_action",          tags: ["Service", "Callback needed"],            summary: "Caller asked for Sam; Riley transferred but Sam was unavailable. Voicemail captured.", aiScore: 7.4, queryResolved: "resolved" },
+  { id: "CALL-005",                                    callerPhone: "+11321323333", startedAt: "2026-06-24T21:18:00Z", durationSec: 63,  speedToAnswerSec: 1, intent: "after_hours_message",     intentTitle: "Brake service — after hours",        outcome: "message_taken",       transferTarget: "Service mailbox",            transferStatus: "message_taken", agent: "Riley", isReturningCaller: false, sentiment: "neutral", leadStatus: "no_action",          tags: ["After-hours", "Service", "Brake"],       summary: "After-hours brake-service request; Riley captured callback details for Service.", aiScore: 8.5, queryResolved: "resolved" },
+  { id: "CALL-006", customerName: "Vanshika Rao",      callerPhone: "+19108222231", startedAt: "2026-06-24T18:45:00Z", durationSec: 47,  speedToAnswerSec: 1, intent: "parts_inquiry",           intentTitle: "Brake pads availability",            outcome: "routed_to_dept",     transferTarget: "Parts (Ext. 204)",           transferStatus: "connected",     agent: "Riley", isReturningCaller: false, sentiment: "happy",   leadStatus: "existing_customer",  tags: ["Parts", "Brake pads"],                   summary: "Asked for brake-pad availability for 2022 Camry; Riley confirmed stock & routed to Parts.", aiScore: 9.1, queryResolved: "resolved" },
+  { id: "CALL-007", customerName: "Katie Brown",       callerPhone: "+18774102019", startedAt: "2026-06-24T11:55:00Z", durationSec: 96,  speedToAnswerSec: 2, intent: "complaint_or_escalation", intentTitle: "Complaint — wanted manager",          outcome: "routed_to_staff",    transferTarget: "Dawn Reyes (Sales Mgr)",     transferStatus: "connected",     agent: "Riley", isReturningCaller: true,  sentiment: "upset",   leadStatus: "no_action",          tags: ["Escalation", "Complaint"],               vehicleContext: "2024 Mustang · 3rd call this week",   summary: "Frustrated caller; Riley routed to manager Dawn within 12s.", aiScore: 6.8, queryResolved: "not_resolved" },
+  { id: "CALL-008",                                    callerPhone: "+12342344444", startedAt: "2026-06-24T10:12:00Z", durationSec: 32,  speedToAnswerSec: 1, intent: "abandoned",               intentTitle: "Hung up before intent",              outcome: "abandoned",           transferTarget: "—",                          transferStatus: "abandoned",     agent: "Riley", isReturningCaller: false, sentiment: "neutral", leadStatus: "no_action",          tags: ["Abandoned"],                             summary: "Caller hung up after 32s before stating intent. Missed-call SMS auto-sent.", aiScore: 3.2, queryResolved: "abandoned" },
+  { id: "CALL-009", customerName: "Marcus Lee Jr.",    callerPhone: "+14157205520", startedAt: "2026-06-24T09:45:00Z", durationSec: 215, speedToAnswerSec: 1, intent: "finance_inquiry",         intentTitle: "Trade-in valuation question",        outcome: "routed_to_dept",     transferTarget: "Finance (Ext. 312)",         transferStatus: "connected",     agent: "Riley", isReturningCaller: false, sentiment: "happy",   leadStatus: "hot_lead",           tags: ["Finance", "Trade-in", "Hot lead"],       vehicleContext: "2020 Tesla Model 3 · trade-in",        summary: "Trade-in valuation question; Riley collected VIN & routed to Marcus in Finance.", aiScore: 9.6, queryResolved: "resolved" },
+  { id: "CALL-010", customerName: "Sofia Mendes",      callerPhone: "+17134802204", startedAt: "2026-06-24T08:22:00Z", durationSec: 88,  speedToAnswerSec: 1, intent: "service_inquiry",         intentTitle: "Recall question — Bronco airbag",    outcome: "routed_to_dept",     transferTarget: "Service (Ext. 200)",         transferStatus: "connected",     agent: "Riley", isReturningCaller: true,  sentiment: "neutral", leadStatus: "appointment_booked", tags: ["Service", "Recall", "Bronco"],           vehicleContext: "2022 Bronco · open recall 23S38",     summary: "Customer asked about airbag recall 23S38; Riley confirmed VIN match & booked.", aiScore: 9.0, queryResolved: "resolved" },
+  { id: "CALL-011",                                    callerPhone: "+19515551200", startedAt: "2026-06-23T19:50:00Z", durationSec: 41,  speedToAnswerSec: 1, intent: "general_info",            intentTitle: "Spanish — preguntando horario",      outcome: "answered_directly",   transferTarget: "—",                          transferStatus: "info_provided", agent: "Riley", isReturningCaller: false, sentiment: "happy",   leadStatus: "info_only",          tags: ["Spanish", "Hours"],                      summary: "Spanish-speaking caller asked dealership hours; Riley answered in Spanish.", aiScore: 9.3, queryResolved: "resolved" },
+  { id: "CALL-012", customerName: "Derek O'Hara",      callerPhone: "+12814430089", startedAt: "2026-06-23T16:08:00Z", durationSec: 156, speedToAnswerSec: 2, intent: "sales_inquiry",           intentTitle: "Mustang GT lease quote",             outcome: "routed_to_ai_agent", transferTarget: "Emily (Sales Inbound AI)",   transferStatus: "connected",     agent: "Riley", isReturningCaller: false, sentiment: "happy",   leadStatus: "hot_lead",           tags: ["Sales", "Mustang", "Lease", "Hot lead"], summary: "Lease quote for Mustang GT; Riley qualified budget then routed to Emily.", aiScore: 9.5, queryResolved: "resolved" },
+  { id: "CALL-013",                                    callerPhone: "+18324820009", startedAt: "2026-06-23T14:01:00Z", durationSec: 38,  speedToAnswerSec: 1, intent: "abandoned",               intentTitle: "Hung up — IVR confusion",            outcome: "abandoned",           transferTarget: "—",                          transferStatus: "abandoned",     agent: "Riley", isReturningCaller: false, sentiment: "upset",   leadStatus: "no_action",          tags: ["Abandoned"],                             summary: "Caller said 'wrong number' & hung up; Riley couldn't recover.", aiScore: 2.5, queryResolved: "abandoned" },
+  { id: "CALL-014", customerName: "Renee Park",        callerPhone: "+16025553311", startedAt: "2026-06-23T11:30:00Z", durationSec: 121, speedToAnswerSec: 1, intent: "service_inquiry",         intentTitle: "Tire rotation appt",                 outcome: "routed_to_dept",     transferTarget: "Service (Ext. 200)",         transferStatus: "connected",     agent: "Riley", isReturningCaller: true,  sentiment: "happy",   leadStatus: "appointment_booked", tags: ["Service", "Tires"],                      vehicleContext: "2021 Edge · 32k mi",                  summary: "Booked Saturday tire-rotation slot; loaner declined.", aiScore: 9.2, queryResolved: "resolved" },
+  { id: "CALL-015", customerName: "Hamilton",          callerPhone: "+12542123960", startedAt: "2026-06-23T10:00:00Z", durationSec: 84,  speedToAnswerSec: 1, intent: "sales_inquiry",           intentTitle: "Follow-up on F-150 stock",           outcome: "routed_to_ai_agent", transferTarget: "Emily (Sales Inbound AI)",   transferStatus: "voicemail",     agent: "Riley", isReturningCaller: true,  sentiment: "neutral", leadStatus: "hot_lead",           tags: ["Sales", "F-150", "Follow-up"],           vehicleContext: "Existing owner: 2018 F-150",          summary: "Follow-up F-150 inquiry; Emily unavailable — voicemail captured.", aiScore: 7.9, queryResolved: "not_resolved" },
+  { id: "CALL-016",                                    callerPhone: "+13125558844", startedAt: "2026-06-22T20:15:00Z", durationSec: 54,  speedToAnswerSec: 1, intent: "after_hours_message",     intentTitle: "After-hours — trade-in eval",        outcome: "message_taken",       transferTarget: "Sales mailbox",              transferStatus: "message_taken", agent: "Riley", isReturningCaller: false, sentiment: "neutral", leadStatus: "hot_lead",           tags: ["After-hours", "Trade-in"],               summary: "After-hours trade-in eval request; callback Thu morning.", aiScore: 8.6, queryResolved: "resolved" },
+  { id: "CALL-017", customerName: "Avery Sutton",      callerPhone: "+14043220098", startedAt: "2026-06-22T15:48:00Z", durationSec: 178, speedToAnswerSec: 2, intent: "complaint_or_escalation", intentTitle: "Repeat issue — vehicle still leaks", outcome: "routed_to_staff",    transferTarget: "Sam Patel (Ext. 215)",       transferStatus: "connected",     agent: "Riley", isReturningCaller: true,  sentiment: "upset",   leadStatus: "no_action",          tags: ["Escalation", "Service", "Repeat"],       vehicleContext: "2019 Explorer · 3 ROs in 60d",        summary: "Repeat-issue caller — Riley flagged sentiment 'upset' & escalated to Sam.", aiScore: 6.2, queryResolved: "not_resolved" },
+  { id: "CALL-018",                                    callerPhone: "+19725550021", startedAt: "2026-06-22T12:20:00Z", durationSec: 49,  speedToAnswerSec: 1, intent: "parts_inquiry",           intentTitle: "Wiper blade fitment",                outcome: "answered_directly",   transferTarget: "—",                          transferStatus: "info_provided", agent: "Riley", isReturningCaller: false, sentiment: "happy",   leadStatus: "info_only",          tags: ["Parts"],                                 summary: "Wiper fitment for 2020 Escape; Riley answered from knowledge — no transfer.", aiScore: 9.1, queryResolved: "resolved" },
+  { id: "CALL-019", customerName: "Theo Carlson",      callerPhone: "+15012220056", startedAt: "2026-06-22T09:05:00Z", durationSec: 198, speedToAnswerSec: 2, intent: "finance_inquiry",         intentTitle: "Refinance options",                  outcome: "routed_to_dept",     transferTarget: "Finance (Ext. 312)",         transferStatus: "connected",     agent: "Riley", isReturningCaller: false, sentiment: "happy",   leadStatus: "hot_lead",           tags: ["Finance", "Refi"],                       vehicleContext: "2023 Bronco · 18mo into loan",        summary: "Refinance question; Riley collected payoff details & routed to Marcus.", aiScore: 9.4, queryResolved: "resolved" },
+  { id: "CALL-020", customerName: "Priya Singh",       callerPhone: "+17075550098", startedAt: "2026-06-21T17:35:00Z", durationSec: 67,  speedToAnswerSec: 1, intent: "staff_request",           intentTitle: "Asked for Priya in Service",         outcome: "routed_to_staff",    transferTarget: "Priya Singh (Ext. 216)",     transferStatus: "connected",     agent: "Riley", isReturningCaller: true,  sentiment: "happy",   leadStatus: "existing_customer",  tags: ["Service", "Sticky-routed"],              vehicleContext: "Loyal customer · 6 visits",            summary: "Sticky-routed to Priya as preferred service advisor.", aiScore: 9.7, queryResolved: "resolved" },
 ]
+
+// ============= PERIOD HELPERS =============
+// Map the date-range label used everywhere in the receptionist module to a
+// cutoff Date. Anything with a timestamp >= cutoff is "in the period."
+export function periodCutoff(label: string, now: Date = new Date(Date.parse("2026-06-25T18:00:00Z"))): Date {
+  const day = 24 * 60 * 60 * 1000
+  switch (label) {
+    case "Last 7 days":   return new Date(now.getTime() - 7 * day)
+    case "Last 14 days":  return new Date(now.getTime() - 14 * day)
+    case "Last 30 days":  return new Date(now.getTime() - 30 * day)
+    case "This month": {
+      const d = new Date(now); d.setUTCDate(1); d.setUTCHours(0, 0, 0, 0); return d
+    }
+    case "Last month": {
+      const d = new Date(now); d.setUTCMonth(d.getUTCMonth() - 1); d.setUTCDate(1); d.setUTCHours(0, 0, 0, 0); return d
+    }
+    default:              return new Date(0)
+  }
+}
+
+// True if the given ISO timestamp is "today" relative to `now`. Used for
+// "Done today" tab semantics.
+export function isToday(iso: string | undefined, now: Date = new Date(Date.parse("2026-06-25T18:00:00Z"))): boolean {
+  if (!iso) return false
+  const d = new Date(iso)
+  return d.getUTCFullYear() === now.getUTCFullYear()
+    && d.getUTCMonth()    === now.getUTCMonth()
+    && d.getUTCDate()     === now.getUTCDate()
+}
+
+// ============= DATA HEALTH =============
+export type HealthSeverity = "err" | "warn" | "ok"
+
+export interface DataHealthIssue {
+  id: string
+  severity: HealthSeverity
+  title: string
+  detail: string
+  action: { label: string; href: string }
+}
+
+export const dataHealthIssues: DataHealthIssue[] = [
+  {
+    id: "i1",
+    severity: "err",
+    title: "Parts dept extension unreachable",
+    detail: "Ext. 204 has failed on 5 of the last 7 transfer attempts. Calls are rolling to voicemail.",
+    action: { label: "View call logs", href: "/max-2/receptionist?tab=calls" },
+  },
+  {
+    id: "i2",
+    severity: "warn",
+    title: "Parts department has no backup target",
+    detail: "If the only target fails, calls have nowhere else to go. Reach out to your Spyne admin to add a fallback.",
+    action: { label: "Open action items", href: "/max-2/receptionist?tab=action-items" },
+  },
+]
+
+export interface RoutingTargetHealth {
+  name: string
+  type: "ai_agent" | "extension" | "voicemail"
+  status: HealthSeverity
+  detail: string
+}
+
+export const routingTargetsHealth: RoutingTargetHealth[] = [
+  { name: "Sales Inbound AI · Emily",   type: "ai_agent",  status: "ok",  detail: "24/7 · responsive" },
+  { name: "Service Inbound AI · Eric",  type: "ai_agent",  status: "ok",  detail: "24/7 · responsive" },
+  { name: "Sales dept · Ext. 100",      type: "extension", status: "ok",  detail: "Reachable during hours" },
+  { name: "Service dept · Ext. 200",    type: "extension", status: "ok",  detail: "Reachable during hours" },
+  { name: "Parts dept · Ext. 204",      type: "extension", status: "err", detail: "5 of last 7 attempts failed" },
+  { name: "Finance dept · Ext. 312",    type: "extension", status: "ok",  detail: "Reachable during hours" },
+  { name: "Sales voicemail",            type: "voicemail", status: "ok",  detail: "Always reachable" },
+  { name: "Service voicemail",          type: "voicemail", status: "ok",  detail: "Always reachable" },
+]
+
+export interface DataHealthEvent {
+  id: string
+  severity: HealthSeverity
+  title: string
+  detail: string
+  when: string
+}
+
+export const dataHealthRecentEvents: DataHealthEvent[] = [
+  { id: "r1", severity: "ok",   title: "Knowledge updated",          detail: "FAQ added: 'Do you take Apple Pay for service?'", when: "Today · 2:14 PM" },
+  { id: "r2", severity: "ok",   title: "Bulletin posted",            detail: "Closing at 4pm today for staff training",         when: "Yesterday" },
+  { id: "r3", severity: "warn", title: "Parts ext. 204 unreachable", detail: "Issue auto-detected · still open",                when: "4 hours ago" },
+]
+
+// Single source of truth for the Data Health page-level stats. callsToday is
+// computed from `receptionistCalls`; uptime is operational telemetry we keep
+// here so the badge in the shell stays in sync with the page.
+export const dataHealthStats = {
+  uptime: "99.7%",
+  get callsToday() {
+    const now = new Date(Date.parse("2026-06-25T18:00:00Z"))
+    return receptionistCalls.filter((c) => isToday(c.startedAt, now)).length
+  },
+}
 
 // ============= ROUTING CONFIG =============
 export interface RoutingTarget {
