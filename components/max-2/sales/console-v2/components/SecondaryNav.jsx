@@ -6,17 +6,17 @@ import { cn } from '@/lib/utils'
 
 const NAV_ITEMS = [
   { id: 'overview',      label: 'Overview',     symbol: 'dashboard',       badge: null },
-  // Data trust leads — a stale rooftop lights this badge.
-  { id: 'data-health',   label: 'Data Health',  symbol: 'database',        badge: 2   },
   { id: 'campaigns',     label: 'Campaigns',    symbol: 'campaign',        badge: 4   },
   { id: 'action-items',  label: 'Action Items', symbol: 'checklist',       badge: 6   },
   { id: 'appointments',  label: 'Appointments', symbol: 'event_available', badge: 3   },
   { id: 'customers',     label: 'Leads',        symbol: 'group',           badge: null },
+  { id: 'onboarding',    label: 'Onboarding',   symbol: 'route',           badge: null },
+  { id: 'data-health',   label: 'Data Health',  symbol: 'database',        badge: 2   },
 ]
 
-const SERVICE_NAV_ITEMS = NAV_ITEMS.map((item) =>
-  item.id === 'customers' ? { ...item, label: 'Customers' } : item
-)
+const SERVICE_NAV_ITEMS = NAV_ITEMS
+  .filter((item) => item.id !== 'onboarding')
+  .map((item) => item.id === 'customers' ? { ...item, label: 'Customers' } : item)
 
 // Receptionist owns calls, not leads / customers. Its job is routing, message capture,
 // and front-desk-style follow-ups — surfaced as its own tab set.

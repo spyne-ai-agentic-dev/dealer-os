@@ -19,12 +19,9 @@ export const STAGE_META: Record<Stage, { label: string; caption: string }> = {
   active: { label: "Running", caption: "Live console" },
 };
 
-/** Tabs locked (preview-only) until the dealer has earned them. Data Health is
- *  always open — it IS the connect/recover surface. */
-export function lockedTabsForStage(stage: Stage): string[] {
-  if (stage === "active") return [];
-  if (stage === "ready") return ["action-items", "appointments"]; // campaigns + customers unlock at the aha
-  return ["campaigns", "action-items", "appointments", "customers"];
+/** All tabs are unlocked — no stage gating. */
+export function lockedTabsForStage(_stage: Stage): string[] {
+  return [];
 }
 
 export interface ConnectStep {

@@ -25,6 +25,7 @@ import LeadIntelligenceBoard from "@/components/max-2/sales/console-v2/component
 import { ActionItemsConsole } from "@/components/max-2/sales/console-v2/action-items"
 import { DataHealthPage } from "@/components/max-2/sales/console-v2/data-health"
 import { OnboardingJourney, DemoStateStepper, GuidedTour, lockedTabsForStage, STAGES, type Stage } from "@/components/max-2/sales/console-v2/journey"
+import { SalesOverviewPage } from "@/components/max-2/sales/console-v2/components/SalesOverviewPage"
 import {
   salesAgentData,
   salesOutboundAgentData,
@@ -67,6 +68,7 @@ export type SalesPage =
   | "appointments"
   | "customers"
   | "customer-profile"
+  | "onboarding"
 
 /** Map an active page (+ optional customer id) to its URL. */
 export function pathForSalesPage(page: SalesPage, id?: string | null): string {
@@ -78,6 +80,7 @@ export function pathForSalesPage(page: SalesPage, id?: string | null): string {
     default:
       return `${SALES_BASE}/${page}`
   }
+
 }
 
 export function ConsoleV2SalesExperience({
@@ -132,7 +135,10 @@ export function ConsoleV2SalesExperience({
 
       <main className="min-w-0 transition-all duration-200">
         <div className="px-max2-page py-6">
-          {page === "overview" && (journeyStage === "active" ? (
+          {page === "overview" && (
+            <SalesOverviewPage onNavigate={(p: string) => go(p as SalesPage)} />
+          )}
+          {page === "onboarding" && (journeyStage === "active" ? (
             <OverviewPage onNavigate={(p: string) => go(p as SalesPage)} />
           ) : (
             <OnboardingJourney
@@ -167,8 +173,8 @@ export function ConsoleV2SalesExperience({
         </div>
       </main>
 
-      {/* Dev-only: walk the 0→end journey on one route. Flag off in prod. */}
-      <DemoStateStepper stage={journeyStage} onStage={persistStage} />
+      {/* Demo stepper — only visible on the Onboarding tab. */}
+      {page === "onboarding" && <DemoStateStepper stage={journeyStage} onStage={persistStage} />}
 
       {/* Guided spotlight tour — auto-starts once on cold-start, replayable. */}
       <GuidedTour page={navPage} journeyStage={journeyStage} onStageChange={persistStage} />
