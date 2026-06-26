@@ -10,12 +10,10 @@ const NAV_ITEMS = [
   { id: 'action-items',  label: 'Action Items', symbol: 'checklist',       badge: 6   },
   { id: 'appointments',  label: 'Appointments', symbol: 'event_available', badge: 3   },
   { id: 'customers',     label: 'Leads',        symbol: 'group',           badge: null },
-  { id: 'onboarding',    label: 'Onboarding',   symbol: 'route',           badge: null },
-  { id: 'data-health',   label: 'Data Health',  symbol: 'database',        badge: 2   },
+  { id: 'reports',       label: 'Reports',      symbol: 'bar_chart',       badge: null },
 ]
 
 const SERVICE_NAV_ITEMS = NAV_ITEMS
-  .filter((item) => item.id !== 'onboarding')
   .map((item) => item.id === 'customers' ? { ...item, label: 'Customers' } : item)
 
 // Receptionist owns calls, not leads / customers. Its job is routing, message capture,

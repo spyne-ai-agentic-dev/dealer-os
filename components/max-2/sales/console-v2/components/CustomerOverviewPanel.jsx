@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { CHART_SERIES, SPYNE_DRAWER_SHADOW } from '../spyne-palette'
 import { MaterialSymbol } from '@/components/max-2/material-symbol'
 import ConversationThread from './ConversationThread'
+import { buildVehicles } from './ServiceCustomerProfile'
 
 // ── Stage config ───────────────────────────────────────────
 
@@ -249,9 +250,112 @@ const SECTION_LABEL = {
   letterSpacing: '0.07em', color: 'var(--spyne-text-muted)', marginBottom: 10,
 }
 
+// ── Service quick CTA ──────────────────────────────────────
+
+function QuickCta({ glyph, label, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className="spyne-focus-ring"
+      style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5,
+        padding: '10px 6px', borderRadius: 'var(--spyne-radius-md)',
+        border: '1px solid var(--spyne-border)', background: 'var(--spyne-surface)',
+        cursor: 'pointer', textAlign: 'center', transition: 'background 150ms, border-color 150ms',
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--spyne-brand-subtle)'; e.currentTarget.style.borderColor = 'var(--spyne-brand-muted)' }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--spyne-surface)'; e.currentTarget.style.borderColor = 'var(--spyne-border)' }}
+    >
+      <span className="inline-flex" style={{ width: 30, height: 30, alignItems: 'center', justifyContent: 'center', borderRadius: 8, background: 'var(--spyne-brand-subtle)', color: 'var(--spyne-brand)' }}>
+        <MaterialSymbol name={glyph} size={17} />
+      </span>
+      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--spyne-text-primary)', lineHeight: 1.2 }}>{label}</span>
+    </button>
+  )
+}
+
+// ── Service snapshot (replaces the sales buying-stage funnel) ──────────────
+
+const RO_ITEM_STATUS = {
+  Approved: { bg: 'var(--spyne-success-subtle)', fg: 'var(--spyne-success-text)' },
+  'Pending approval': { bg: 'var(--spyne-warning-subtle)', fg: 'var(--spyne-warning-ink)' },
+}
+
+function ServiceSnapshot({ customer }) {
+  const vehicles = buildVehicles(customer)
+  const vehicle = vehicles[0]
+  const openRo = vehicles.map(v => v.openRo).find(Boolean)
+  const rec = vehicle?.recommended?.[0]
+
+  return (
+    <>
+      {/* Vehicles */}
+      <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--spyne-border)' }}>
+        <p style={SECTION_LABEL}>{vehicles.length > 1 ? `Vehicles (${vehicles.length})` : 'Vehicle'}</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {vehicles.map((v) => (
+            <div key={v.vin} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span className="inline-flex" style={{ width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center', background: 'var(--spyne-brand-subtle)', color: 'var(--spyne-brand)', flexShrink: 0 }}>
+                <MaterialSymbol name="directions_car" size={18} />
+              </span>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--spyne-text-primary)' }}>{v.name}</p>
+                <p style={{ fontSize: 11, color: 'var(--spyne-text-muted)' }}>{v.mileage.toLocaleString()} mi · VIN …{v.vin.slice(-6)}</p>
+              </div>
+              {v.openRo && <span className="spyne-badge spyne-badge-info" style={{ fontSize: 9 }}>Open RO</span>}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Open repair order + pending items */}
+      {openRo && (
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--spyne-border)' }}>
+          <p style={SECTION_LABEL}>Open repair order</p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--spyne-text-primary)' }}>{openRo.ro}</span>
+            <span style={{ fontSize: 11, color: 'var(--spyne-text-muted)' }}>{openRo.mileage.toLocaleString()} mi · {openRo.date}</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {openRo.items.map((it, i) => {
+              const st = RO_ITEM_STATUS[it.status] || RO_ITEM_STATUS.Approved
+              return (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span className="spyne-badge" style={{ fontSize: 9, background: st.bg, color: st.fg, flexShrink: 0 }}>{it.status}</span>
+                  <span style={{ fontSize: 12.5, color: 'var(--spyne-text-primary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.label}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--spyne-text-primary)', fontVariantNumeric: 'tabular-nums' }}>${it.total}</span>
+                </div>
+              )
+            })}
+          </div>
+          <div style={{ display: 'flex', gap: 14, marginTop: 10, fontSize: 11.5 }}>
+            <span style={{ color: 'var(--spyne-success-text)' }}>Approved <b>${openRo.approvedTotal}</b></span>
+            <span style={{ color: 'var(--spyne-warning-ink)' }}>Pending <b>${openRo.pendingTotal}</b></span>
+            <span style={{ marginLeft: 'auto', fontWeight: 700, color: 'var(--spyne-text-primary)' }}>Est. ${openRo.approvedTotal + openRo.pendingTotal}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Recommended next service */}
+      {rec && (
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--spyne-border)' }}>
+          <p style={SECTION_LABEL}>Recommended next service</p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--spyne-text-primary)' }}>{rec.mileage.toLocaleString()} mile service</p>
+              <p style={{ fontSize: 11, color: 'var(--spyne-text-muted)' }}>Due ~{rec.label} · {rec.items.length} items</p>
+            </div>
+            <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--spyne-text-primary)', fontVariantNumeric: 'tabular-nums' }}>~${rec.est}</span>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 // ── Main panel ─────────────────────────────────────────────
 
-export default function CustomerOverviewPanel({ customer, onClose, onViewProfile, inline = false }) {
+export default function CustomerOverviewPanel({ customer, onClose, onViewProfile, inline = false, department = 'sales', onNavigate }) {
   const [panelTab,      setPanelTab]      = useState('overview')
   const [channelFilter, setChannelFilter] = useState('all')
 
@@ -259,6 +363,8 @@ export default function CustomerOverviewPanel({ customer, onClose, onViewProfile
   useEffect(() => { setPanelTab('overview') }, [customer?.id])
 
   if (!customer) return null
+
+  const isService = department === 'service'
 
   const stageCls = STAGE_BADGE_CLASS[customer.buyingStage] || STAGE_BADGE_CLASS.RESEARCH
   const srcCls   = SOURCE_BADGE_CLASS[customer.source] || SOURCE_BADGE_CLASS.Referral
@@ -330,13 +436,15 @@ export default function CustomerOverviewPanel({ customer, onClose, onViewProfile
         </div>
       </div>
 
-      {/* ── Panel tabs ── */}
-      <div style={{ flexShrink: 0, padding: '0 20px' }}>
-        <SpyneLineTabStrip embedded compact>
-          <SpyneLineTab active={panelTab === 'overview'}      onClick={() => setPanelTab('overview')}>Overview</SpyneLineTab>
-          <SpyneLineTab active={panelTab === 'conversation'}  onClick={() => setPanelTab('conversation')}>Conversation</SpyneLineTab>
-        </SpyneLineTabStrip>
-      </div>
+      {/* ── Panel tabs — service keeps Overview only (conversation opens via CTA) ── */}
+      {!isService && (
+        <div style={{ flexShrink: 0, padding: '0 20px' }}>
+          <SpyneLineTabStrip embedded compact>
+            <SpyneLineTab active={panelTab === 'overview'}      onClick={() => setPanelTab('overview')}>Overview</SpyneLineTab>
+            <SpyneLineTab active={panelTab === 'conversation'}  onClick={() => setPanelTab('conversation')}>Conversation</SpyneLineTab>
+          </SpyneLineTabStrip>
+        </div>
+      )}
 
       {/* ── Scrollable body ── */}
       <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
@@ -350,27 +458,43 @@ export default function CustomerOverviewPanel({ customer, onClose, onViewProfile
               <AiOpener stage={customer.buyingStage} conversationOpener={customer.conversationOpener} />
             </div>
 
-            {/* 2 — Buying Stage */}
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--spyne-border)' }}>
-              <p style={SECTION_LABEL}>Buying Stage</p>
-              <StageProgress current={customer.buyingStage} />
-            </div>
-
-            {/* 3 — Key Signals */}
-            {signalFields.length > 0 && (
-              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--spyne-border)' }}>
-                <p style={SECTION_LABEL}>Key Signals</p>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 20px' }}>
-                  {signalFields.map(f => (
-                    <SignalRow key={f.label} label={f.label} value={f.value} warning={f.warning} />
-                  ))}
-                </div>
-                {customer.lastSignal && (
-                  <p style={{ fontSize: 12, color: 'var(--spyne-text-secondary)', fontStyle: 'italic', marginTop: 14, lineHeight: 1.55, borderTop: '1px solid var(--spyne-border)', paddingTop: 12 }}>
-                    "{customer.lastSignal}"
-                  </p>
-                )}
+            {/* Service quick CTAs — open conversation / appointments / action items */}
+            {isService && (
+              <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--spyne-border)', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                <QuickCta glyph="forum" label="Latest conversation" onClick={() => onViewProfile?.()} />
+                <QuickCta glyph="event" label="Appointments" onClick={() => { onClose?.(); onNavigate?.('appointments') }} />
+                <QuickCta glyph="checklist" label="Action items" onClick={() => { onClose?.(); onNavigate?.('action-items') }} />
               </div>
+            )}
+
+            {isService ? (
+              /* 2 — Service snapshot (vehicles · open RO · recommended) */
+              <ServiceSnapshot customer={customer} />
+            ) : (
+              <>
+                {/* 2 — Buying Stage */}
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--spyne-border)' }}>
+                  <p style={SECTION_LABEL}>Buying Stage</p>
+                  <StageProgress current={customer.buyingStage} />
+                </div>
+
+                {/* 3 — Key Signals */}
+                {signalFields.length > 0 && (
+                  <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--spyne-border)' }}>
+                    <p style={SECTION_LABEL}>Key Signals</p>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 20px' }}>
+                      {signalFields.map(f => (
+                        <SignalRow key={f.label} label={f.label} value={f.value} warning={f.warning} />
+                      ))}
+                    </div>
+                    {customer.lastSignal && (
+                      <p style={{ fontSize: 12, color: 'var(--spyne-text-secondary)', fontStyle: 'italic', marginTop: 14, lineHeight: 1.55, borderTop: '1px solid var(--spyne-border)', paddingTop: 12 }}>
+                        "{customer.lastSignal}"
+                      </p>
+                    )}
+                  </div>
+                )}
+              </>
             )}
 
             {/* 4 — Action Items */}
@@ -421,7 +545,7 @@ export default function CustomerOverviewPanel({ customer, onClose, onViewProfile
                     {lastMessage.body}
                   </p>
                   <button
-                    onClick={() => { setPanelTab('conversation'); setChannelFilter('all') }}
+                    onClick={() => { if (isService) { onViewProfile?.() } else { setPanelTab('conversation'); setChannelFilter('all') } }}
                     style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 12, color: 'var(--spyne-brand)', fontWeight: 600, marginTop: 8 }}
                   >
                     View conversation →

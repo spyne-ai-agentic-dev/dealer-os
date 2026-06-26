@@ -8,6 +8,7 @@ import { customersData, serviceLeadsData } from '../mockData'
 import { SERVICE_CONSOLE_TAB_CONTENT } from '@/lib/max-2/service-console-tab-content'
 import ConversationThread from './ConversationThread'
 import { CustomerIntelligencePanel } from './CustomerIntelligencePanel'
+import ServiceCustomerProfile from './ServiceCustomerProfile'
 import { SectionLabel, StatTile, EmptyState } from '../shared'
 
 const STAGE_LABELS = {
@@ -66,7 +67,7 @@ function StageBadge({ stage, labelOverride }) {
   return <span className={cn('spyne-badge', cls)}>{labelOverride || STAGE_LABELS[stage]}</span>
 }
 
-export default function CustomerProfilePage({ customerId, onBack, department = 'sales' }) {
+export default function CustomerProfilePage({ customerId, onBack, department = 'sales', onNavigate }) {
   const isService = department === 'service'
   const roster = isService ? serviceLeadsData : customersData
   const customer = roster.find((c) => c.id === customerId)
@@ -83,6 +84,12 @@ export default function CustomerProfilePage({ customerId, onBack, department = '
         </p>
       </div>
     )
+  }
+
+  // Service customers get the xTime-style service-history journey (vehicles + per-VIN
+  // timeline); sales keeps the conversation-first lead profile below.
+  if (isService) {
+    return <ServiceCustomerProfile customer={customer} onBack={onBack} onNavigate={onNavigate} />
   }
 
   const srcCls = SOURCE_BADGE_CLASS[customer.source] || SOURCE_BADGE_CLASS.Referral

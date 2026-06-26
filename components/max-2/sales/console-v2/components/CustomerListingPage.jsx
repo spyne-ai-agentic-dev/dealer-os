@@ -54,9 +54,18 @@ const FILTERS = [
   { id: 'needs_attention', label: 'Needs Attention' },
 ]
 
+// Service-lane vocabulary — guests move through the drive, not a sales funnel.
+const SERVICE_FILTERS = [
+  { id: 'all',             label: 'All' },
+  { id: 'appointment_set', label: 'Appointment booked' },
+  { id: 'in_progress',     label: 'Open RO' },
+  { id: 'qualified',       label: 'Quote sent' },
+  { id: 'needs_attention', label: 'Needs attention' },
+]
+
 const COLS = ['Customer', 'Stage', 'Temperature', 'Vehicle', 'Last Interaction ↓', 'Salesperson', 'Next Appt', '']
 
-const SERVICE_COLS = ['Guest', 'Lead status', 'Temperature', 'Vehicle / RO', 'Last interaction ↓', 'Advisor', 'Next appt', '']
+const SERVICE_COLS = ['Guest', 'Service status', 'Priority', 'Vehicle / RO', 'Last interaction ↓', 'Advisor', 'Next appt', '']
 
 // Swimlane columns — 5 pipeline stages
 const SWIMLANE_COLS = [
@@ -65,6 +74,18 @@ const SWIMLANE_COLS = [
   { key: 'QUALIFIED',         label: 'Qualified',         color: SPYNE.warningInk, bg: SPYNE_SOFT_BG.warning },
   { key: 'APPOINTMENT_BOOKED', label: 'Appointment Booked', color: SPYNE.primary, bg: SPYNE_SOFT_BG.primary },
   { key: 'STORE_VISIT',       label: 'Store Visit',       color: SPYNE.success, bg: SPYNE_SOFT_BG.success },
+]
+
+// Service-lane lifecycle — a guest's journey from "due" through collection & CSI.
+const SERVICE_SWIMLANE_COLS = [
+  { key: 'DUE_SERVICE',      label: 'Due for service',          color: SPYNE.warningInk,     bg: SPYNE_SOFT_BG.warning },
+  { key: 'DECLINED',         label: 'Declined service',         color: SPYNE.error,          bg: SPYNE_SOFT_BG.pink },
+  { key: 'NEW_LEAD_PENDING', label: 'New leads · pending appt', color: SPYNE.info,           bg: SPYNE_SOFT_BG.info },
+  { key: 'UPCOMING_APPT',    label: 'Upcoming appointments',    color: SPYNE.primary,        bg: SPYNE_SOFT_BG.primary },
+  { key: 'IN_SERVICE',       label: 'In service',               color: SPYNE.success,        bg: SPYNE_SOFT_BG.success },
+  { key: 'RECON_APPROVALS',  label: 'Recon approvals',          color: SPYNE.orange,         bg: SPYNE_SOFT_BG.orange },
+  { key: 'CLOSED_COLLECTION', label: 'Closed · pending collection', color: SPYNE.textSecondary, bg: SPYNE_SOFT_BG.neutral },
+  { key: 'CSI_PENDING',      label: 'CSI feedback pending',     color: SPYNE.pink,           bg: SPYNE_SOFT_BG.pink },
 ]
 
 const SWIMLANE_COL_MIN_WIDTH_PX = 310
@@ -287,12 +308,12 @@ function SwimlaneCard({ customer, onViewProfile, isService = false }) {
 
       <div className="mb-3 space-y-2.5 rounded-xl border border-spyne-border bg-spyne-bg px-3 py-3">
         <SwimlaneDetailRow
-          icon="language"
-          label="Website"
+          icon={isService ? 'how_to_reg' : 'language'}
+          label={isService ? 'Source' : 'Website'}
           value={
             <span className="inline-flex max-w-full items-center gap-1 rounded-full border border-spyne-border bg-spyne-surface px-2.5 py-1 text-[11px] font-medium text-spyne-text">
-              <MaterialSymbol name="link" size={12} className="shrink-0 text-spyne-text-secondary" aria-hidden />
-              <span className="truncate">{website}</span>
+              <MaterialSymbol name={isService ? 'pin_drop' : 'link'} size={12} className="shrink-0 text-spyne-text-secondary" aria-hidden />
+              <span className="truncate">{isService ? (customer.source || 'Service lane') : website}</span>
             </span>
           }
         />
@@ -337,8 +358,8 @@ function SwimlaneCard({ customer, onViewProfile, isService = false }) {
           </div>
         </div>
         <SwimlaneDetailRow
-          icon="calendar_today"
-          label="Close date"
+          icon={isService ? 'event_available' : 'calendar_today'}
+          label={isService ? 'Next visit' : 'Close date'}
           value={<span className="text-right text-[12px] font-semibold text-spyne-text">{closeLbl}</span>}
         />
       </div>
@@ -387,23 +408,24 @@ function SwimlaneCard({ customer, onViewProfile, isService = false }) {
   )
 }
 
-function SwimlaneView({ data, onViewProfile, emptyColumnLabel = 'No leads', isService = false }) {
+function SwimlaneView({ data, onViewProfile, emptyColumnLabel = 'No leads', isService = false, cols = SWIMLANE_COLS }) {
   return (
     <div
       className="-mx-max2-page max-w-[100vw] min-w-0 w-full overflow-x-auto overscroll-x-contain px-max2-page pb-1 sm:max-w-none"
       role="region"
-      aria-label="Lead pipeline columns"
+      aria-label={isService ? 'Service pipeline columns' : 'Lead pipeline columns'}
     >
       <div
         className="grid w-max min-w-full items-start gap-4"
         style={{
-          minWidth: `${SWIMLANE_GRID_MIN_WIDTH_PX}px`,
-          gridTemplateColumns: `repeat(${SWIMLANE_COLS.length}, minmax(${SWIMLANE_COL_MIN_WIDTH_PX}px, 1fr))`,
+          minWidth: `${cols.length * SWIMLANE_COL_MIN_WIDTH_PX + (cols.length - 1) * SWIMLANE_COL_GAP_PX}px`,
+          gridTemplateColumns: `repeat(${cols.length}, minmax(${SWIMLANE_COL_MIN_WIDTH_PX}px, 1fr))`,
         }}
       >
-        {SWIMLANE_COLS.map((col) => {
+        {cols.map((col) => {
+          const stageOf = (c) => (isService ? c.servicePipelineStage : c.swimlaneStage)
           const cards = data
-            .filter((c) => c.swimlaneStage === col.key)
+            .filter((c) => stageOf(c) === col.key)
             .sort((a, b) => {
               const tDiff = (TEMP_ORDER[a.temperature] ?? 3) - (TEMP_ORDER[b.temperature] ?? 3)
               if (tDiff !== 0) return tDiff
@@ -461,12 +483,13 @@ function SwimlaneView({ data, onViewProfile, emptyColumnLabel = 'No leads', isSe
   )
 }
 
-export default function CustomerListingPage({ onViewProfile, department = 'sales' }) {
+export default function CustomerListingPage({ onViewProfile, department = 'sales', onNavigate }) {
   const isService = department === 'service'
   const roster = isService ? serviceLeadsData : customersData
 
   const [search,       setSearch]       = useState('')
   const [filter,       setFilter]       = useState('all')
+  const [segment,      setSegment]      = useState('all') // service only: all | lead | customer
   const [selectedId,   setSelectedId]   = useState(null)
   const [tooltipId,    setTooltipId]    = useState(null)
   const [view,         setView]         = useState(isService ? 'table' : 'swimlane')
@@ -489,8 +512,16 @@ export default function CustomerListingPage({ onViewProfile, department = 'sales
       (filter === 'cooling' && c.engagementTrend === 'cooling') ||
       (filter === 'needs_attention' && c.needsAttention) ||
       c.outcome === filter
-    return matchSearch && matchFilter
+    const matchSegment = !isService || segment === 'all' || (c.customerType ?? 'lead') === segment
+    return matchSearch && matchFilter && matchSegment
   })
+
+  // Leads vs existing customers split (service only).
+  const segmentCounts = {
+    all: roster.length,
+    lead: roster.filter((c) => (c.customerType ?? 'lead') === 'lead').length,
+    customer: roster.filter((c) => (c.customerType ?? 'lead') === 'customer').length,
+  }
 
   function getNoteText(c) {
     return editedNotes[c.id] !== undefined ? editedNotes[c.id] : (c.notes ?? '')
@@ -505,10 +536,47 @@ export default function CustomerListingPage({ onViewProfile, department = 'sales
     <div className="relative min-w-0 spyne-animate-fade-in">
       <div className={spyneSalesLayout.pageStack}>
         <div className="min-w-0 space-y-6">
-        {/* VINI decay-risk banner */}
+        {/* VINI insight banner */}
         <ViniTabStrip
-          insight={`${roster.length} ${isService ? 'guests' : 'leads'} in the pipeline. VINI ranks them by decay risk — re-engage the ones cooling fastest before they go cold, not after.`}
+          insight={
+            isService
+              ? `${roster.length} guests in the service lane. VINI surfaces open ROs, declined work, and recommended services due — so nothing slips between visits.`
+              : `${roster.length} leads in the pipeline. VINI ranks them by decay risk — re-engage the ones cooling fastest before they go cold, not after.`
+          }
         />
+
+        {/* Service: split new leads from existing customers */}
+        {isService && (
+          <div className="flex items-center gap-2 border-b border-spyne-border">
+            {[
+              { id: 'all', label: 'All guests', glyph: 'groups' },
+              { id: 'lead', label: 'New leads', glyph: 'person_add' },
+              { id: 'customer', label: 'Existing customers', glyph: 'how_to_reg' },
+            ].map((s) => {
+              const active = segment === s.id
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => setSegment(s.id)}
+                  className="relative -mb-px inline-flex items-center gap-1.5 px-1 pb-2.5 pt-1 text-[13px] font-semibold transition-colors"
+                  style={{ color: active ? 'var(--spyne-brand)' : 'var(--spyne-text-secondary)' }}
+                >
+                  <MaterialSymbol name={s.glyph} size={16} aria-hidden />
+                  {s.label}
+                  <span
+                    className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold tabular-nums"
+                    style={active
+                      ? { background: 'var(--spyne-brand-subtle)', color: 'var(--spyne-brand)' }
+                      : { background: 'var(--spyne-page-bg)', color: 'var(--spyne-text-muted)' }}
+                  >
+                    {segmentCounts[s.id]}
+                  </span>
+                  {active && <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full" style={{ background: 'var(--spyne-brand)' }} />}
+                </button>
+              )
+            })}
+          </div>
+        )}
 
         {/* Search + filters + view switcher */}
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -533,7 +601,7 @@ export default function CustomerListingPage({ onViewProfile, department = 'sales
             />
           </div>
           <div className="flex items-center gap-1.5 flex-wrap">
-            {FILTERS.map((f) => (
+            {(isService ? SERVICE_FILTERS : FILTERS).map((f) => (
               <button
                 key={f.id}
                 onClick={() => setFilter(f.id)}
@@ -566,6 +634,7 @@ export default function CustomerListingPage({ onViewProfile, department = 'sales
             onViewProfile={(id) => setSelectedId(id)}
             emptyColumnLabel={isService ? SERVICE_CONSOLE_TAB_CONTENT.customers.swimlaneEmpty : 'No leads'}
             isService={isService}
+            cols={isService ? SERVICE_SWIMLANE_COLS : SWIMLANE_COLS}
           />
         )}
 
@@ -766,6 +835,8 @@ export default function CustomerListingPage({ onViewProfile, department = 'sales
       {selectedCustomer && (
         <CustomerOverviewPanel
           customer={selectedCustomer}
+          department={department}
+          onNavigate={onNavigate}
           onClose={() => setSelectedId(null)}
           onViewProfile={() => {
             setSelectedId(null)

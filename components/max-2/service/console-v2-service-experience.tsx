@@ -11,8 +11,9 @@ import PriorityFollowUps, {
 } from "@/components/max-2/sales/console-v2/components/PriorityFollowUps"
 import MetricsBar from "@/components/max-2/sales/console-v2/components/MetricsBar"
 import ActivityChart from "@/components/max-2/sales/console-v2/components/ActivityChart"
-import ActionItemsPage from "@/components/max-2/sales/console-v2/components/ActionItemsPage"
+import { ActionItemsConsole } from "@/components/max-2/sales/console-v2/action-items"
 import AppointmentsPage from "@/components/max-2/sales/console-v2/components/AppointmentsPage"
+import { ReportsOverview } from "@/components/max-2/reports/ReportsOverview"
 import CustomerListingPage from "@/components/max-2/sales/console-v2/components/CustomerListingPage"
 import CustomerProfilePage from "@/components/max-2/sales/console-v2/components/CustomerProfilePage"
 import CampaignsPage from "@/components/max-2/sales/console-v2/components/CampaignsPage"
@@ -81,9 +82,8 @@ export function ConsoleV2ServiceExperience() {
               lotData={null}
             />
           )}
-          {activePage === "action-items" && (
-            <ActionItemsPage sidebarCollapsed={sidebarCollapsed} department="service" />
-          )}
+          {activePage === "action-items" && <ActionItemsConsole />}
+          {activePage === "reports" && <ReportsOverview department="service" />}
           {activePage === "appointments" && <AppointmentsPage department="service" />}
           {activePage === "customers" && (
             <CustomerListingPage
@@ -92,6 +92,7 @@ export function ConsoleV2ServiceExperience() {
                 setSelectedCustomerId(id)
                 handlePageChange("customer-profile")
               }}
+              onNavigate={handlePageChange}
             />
           )}
           {activePage === "customer-profile" && (
@@ -99,6 +100,7 @@ export function ConsoleV2ServiceExperience() {
               customerId={selectedCustomerId}
               department="service"
               onBack={() => handlePageChange("customers")}
+              onNavigate={handlePageChange}
             />
           )}
         </div>

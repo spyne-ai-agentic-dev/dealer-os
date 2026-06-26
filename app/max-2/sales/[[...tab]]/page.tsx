@@ -8,7 +8,7 @@ import {
 } from "@/components/max-2/sales/console-v2-sales-experience"
 
 /** Top-level tabs that map directly to a single route segment. */
-const TOP_LEVEL: SalesPage[] = ["data-health", "campaigns", "action-items", "appointments", "customers", "onboarding"]
+const TOP_LEVEL: SalesPage[] = ["reports", "campaigns", "action-items", "appointments", "customers"]
 
 /**
  * Optional catch-all so every Sales tab has a real URL while the console shell

@@ -23,8 +23,7 @@ import FollowUpSequencesStrip from "@/components/max-2/sales/console-v2/componen
 import CallHandlingPanel from "@/components/max-2/sales/console-v2/components/CallHandlingPanel"
 import LeadIntelligenceBoard from "@/components/max-2/sales/console-v2/components/LeadIntelligenceBoard"
 import { ActionItemsConsole } from "@/components/max-2/sales/console-v2/action-items"
-import { DataHealthPage } from "@/components/max-2/sales/console-v2/data-health"
-import { OnboardingJourney, DemoStateStepper, GuidedTour, lockedTabsForStage, STAGES, type Stage } from "@/components/max-2/sales/console-v2/journey"
+import { ReportsOverview } from "@/components/max-2/reports/ReportsOverview"
 import { SalesOverviewPage } from "@/components/max-2/sales/console-v2/components/SalesOverviewPage"
 import {
   salesAgentData,
@@ -62,13 +61,12 @@ export const SALES_BASE = "/max-2/sales"
 /** The tabs that own a top-level route segment under {@link SALES_BASE}. */
 export type SalesPage =
   | "overview"
-  | "data-health"
+  | "reports"
   | "campaigns"
   | "action-items"
   | "appointments"
   | "customers"
   | "customer-profile"
-  | "onboarding"
 
 /** Map an active page (+ optional customer id) to its URL. */
 export function pathForSalesPage(page: SalesPage, id?: string | null): string {
@@ -95,61 +93,27 @@ export function ConsoleV2SalesExperience({
   const { sidebarCollapsed } = useMax2Ui()
   const router = useRouter()
 
-  // The 0→value onboarding journey stage. Drives which Overview surface renders
-  // and which tabs are unlocked. Persisted to localStorage so the demo survives
-  // tab navigation / refresh / any remount (default 'new' so the cold-start
-  // story lands on a truly first visit).
-  const [journeyStage, setJourneyStage] = useState<Stage>("new")
-  const restoredStage = useRef(false)
-  useEffect(() => {
-    if (restoredStage.current) return
-    restoredStage.current = true
-    try {
-      const s = window.localStorage.getItem("vini-demo-stage")
-      if (s && (STAGES as readonly string[]).includes(s)) setJourneyStage(s as Stage)
-    } catch {}
-  }, [])
-  // Single setter that also persists — every stage change (demo stepper, journey
-  // CTAs, guided tour) writes through, so navigating tabs never resets the demo.
-  const persistStage = useCallback((s: Stage) => {
-    setJourneyStage(s)
-    try { window.localStorage.setItem("vini-demo-stage", s) } catch {}
-  }, [])
-  const lockedTabs = lockedTabsForStage(journeyStage)
-  // A prompt handed from a journey opportunity's "Draft campaign" → opens the
-  // campaign builder pre-filled when the Campaigns tab mounts.
+  // A prompt handed from a campaign CTA → opens the campaign builder pre-filled
+  // when the Campaigns tab mounts.
   const [campaignPrefillPrompt, setCampaignPrefillPrompt] = useState("")
 
   // Every tab is a real route now — navigation pushes the URL instead of
   // flipping local state, so deep links, back/forward, and refresh all work.
   const go = (next: SalesPage, id?: string | null) => router.push(pathForSalesPage(next, id))
-  // Tab clicks are gated until the stage unlocks them; in-page nav uses `go`.
-  const goTab = (next: SalesPage) => { if (!lockedTabs.includes(next)) go(next) }
 
   // Drilled-in sub-pages keep their parent tab lit in the secondary nav.
   const navPage = page === "customer-profile" ? "customers" : page
 
   return (
     <div className="console-v2-sales-root relative min-h-[calc(100dvh-4rem)] w-full min-w-0 bg-spyne-page">
-      <SecondaryNav activePage={navPage} embedded onPageChange={(p: SalesPage) => goTab(p)} lockedTabs={lockedTabs} />
+      <SecondaryNav activePage={navPage} embedded onPageChange={(p: SalesPage) => go(p)} />
 
       <main className="min-w-0 transition-all duration-200">
         <div className="px-max2-page py-6">
           {page === "overview" && (
             <SalesOverviewPage onNavigate={(p: string) => go(p as SalesPage)} />
           )}
-          {page === "onboarding" && (journeyStage === "active" ? (
-            <OverviewPage onNavigate={(p: string) => go(p as SalesPage)} />
-          ) : (
-            <OnboardingJourney
-              stage={journeyStage}
-              onStageChange={persistStage}
-              onNavigate={(p: string) => go(p as SalesPage)}
-              onDraftCampaign={(prompt: string) => { setCampaignPrefillPrompt(prompt); go("campaigns") }}
-              userName={dealerData.userName}
-            />
-          ))}
-          {page === "data-health" && <DataHealthPage />}
+          {page === "reports" && <ReportsOverview department="sales" />}
           {page === "campaigns" && (
             <CampaignsPage
               data={campaignsData}
@@ -172,12 +136,6 @@ export function ConsoleV2SalesExperience({
           )}
         </div>
       </main>
-
-      {/* Demo stepper — only visible on the Onboarding tab. */}
-      {page === "onboarding" && <DemoStateStepper stage={journeyStage} onStage={persistStage} />}
-
-      {/* Guided spotlight tour — auto-starts once on cold-start, replayable. */}
-      <GuidedTour page={navPage} journeyStage={journeyStage} onStageChange={persistStage} />
     </div>
   )
 }
