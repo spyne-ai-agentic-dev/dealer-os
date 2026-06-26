@@ -4,52 +4,17 @@ import { MaterialSymbol } from "@/components/max-2/material-symbol"
 import { max2Classes, spyneComponentClasses, spyneSalesLayout } from "@/lib/design-system/max-2"
 import { SectionLabel } from "@/components/max-2/sales/console-v2/shared"
 import { cn } from "@/lib/utils"
+import {
+  dataHealthIssues as ACTIVE_ISSUES,
+  routingTargetsHealth as ROUTING_TARGETS,
+  dataHealthRecentEvents as RECENT_EVENTS,
+  dataHealthStats,
+  type HealthSeverity,
+  type RoutingTargetHealth,
+} from "./receptionist-data"
 
-type Severity = "err" | "warn" | "ok"
-
-interface Issue {
-  id: string
-  severity: Severity
-  title: string
-  detail: string
-  action: { label: string; href: string }
-}
-
-const ACTIVE_ISSUES: Issue[] = [
-  {
-    id: "i1",
-    severity: "err",
-    title: "Parts dept extension unreachable",
-    detail: "Ext. 204 has failed on 5 of the last 7 transfer attempts. Calls are rolling to voicemail.",
-    action: { label: "View call logs", href: "/max-2/receptionist?tab=calls" },
-  },
-  {
-    id: "i2",
-    severity: "warn",
-    title: "Parts department has no backup target",
-    detail: "If the only target fails, calls have nowhere else to go. Reach out to your Spyne admin to add a fallback.",
-    action: { label: "Open action items", href: "/max-2/receptionist?tab=action-items" },
-  },
-]
-
-interface Target { name: string; type: "ai_agent" | "extension" | "voicemail"; status: Severity; detail: string }
-
-const ROUTING_TARGETS: Target[] = [
-  { name: "Sales Inbound AI · Emily",   type: "ai_agent",  status: "ok",  detail: "24/7 · responsive" },
-  { name: "Service Inbound AI · Eric",  type: "ai_agent",  status: "ok",  detail: "24/7 · responsive" },
-  { name: "Sales dept · Ext. 100",      type: "extension", status: "ok",  detail: "Reachable during hours" },
-  { name: "Service dept · Ext. 200",    type: "extension", status: "ok",  detail: "Reachable during hours" },
-  { name: "Parts dept · Ext. 204",      type: "extension", status: "err", detail: "5 of last 7 attempts failed" },
-  { name: "Finance dept · Ext. 312",    type: "extension", status: "ok",  detail: "Reachable during hours" },
-  { name: "Sales voicemail",            type: "voicemail", status: "ok",  detail: "Always reachable" },
-  { name: "Service voicemail",          type: "voicemail", status: "ok",  detail: "Always reachable" },
-]
-
-const RECENT_EVENTS = [
-  { id: "r1", severity: "ok"   as Severity, title: "Knowledge updated",          detail: "FAQ added: 'Do you take Apple Pay for service?'", when: "Today · 2:14 PM" },
-  { id: "r2", severity: "ok"   as Severity, title: "Bulletin posted",            detail: "Closing at 4pm today for staff training",         when: "Yesterday" },
-  { id: "r3", severity: "warn" as Severity, title: "Parts ext. 204 unreachable", detail: "Issue auto-detected · still open",                when: "4 hours ago" },
-]
+type Severity = HealthSeverity
+type Target = RoutingTargetHealth
 
 export function ReceptionistDataHealth() {
   const errCount  = ACTIVE_ISSUES.filter((i) => i.severity === "err").length
@@ -80,8 +45,8 @@ export function ReceptionistDataHealth() {
         warnCount={warnCount}
         reachable={reachableTargets}
         totalTargets={totalTargets}
-        callsToday={142}
-        uptime="99.7%"
+        callsToday={dataHealthStats.callsToday}
+        uptime={dataHealthStats.uptime}
       />
 
       {/* Active issues */}
